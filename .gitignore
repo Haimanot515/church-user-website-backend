@@ -1,0 +1,125 @@
+# Dependencies
+node_modules/
+jspm_packages/
+bower_components/
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage / testing
+coverage/
+*.lcov
+.nyc_output/
+
+# Build output
+dist/
+build/
+out/
+.next/
+.nuxt/
+.cache/
+
+# TypeScript
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm/
+
+# Optional eslint cache
+.eslintcache
+
+# Optional stylelint cache
+.stylelintcache
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variable files (already covered above but keeping explicit)
+.env.vault
+
+# parcel-bundler cache
+.parcel-cache/
+
+# vuepress build output
+.vuepress/dist
+
+# Serverless directories
+.serverless/
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+# TernJS port file
+.tern-port
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.vs/
+
+# Uploads (if you store user uploads locally — adjust as needed)
+uploads/
+public/uploads/
+
+# Database files (if using local sqlite etc)
+*.sqlite
+*.sqlite3
+*.db
+
+# PM2
+.pm2/
+
+# Docker
+.docker/
+
+# MacOS
+*.pem
+
+# Certificates / keys
+*.key
+*.crt
+*.pfx
+
+# Backup files
+*.bak
+*.tmp
+*.temp 
