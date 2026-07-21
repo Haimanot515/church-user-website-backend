@@ -12,17 +12,24 @@ const serviceSchema = new mongoose.Schema({
     required: true,
   },
 
-
   imageUrl: {
     type: String,
   },
 
-
-  schedule: {
+  day: {
     type: String,
     required: true,
   },
 
+  time: {
+    type: String,
+    required: true,
+  },
+
+  schedule: {
+    type: String,
+    // no longer required directly — auto-generated below from day + time
+  },
 
   category: {
     type: String,
@@ -39,18 +46,15 @@ const serviceSchema = new mongoose.Schema({
     default: "Other",
   },
 
-
   location: {
     type: String,
     default: "",
   },
 
-
   isFeatured: {
     type: Boolean,
     default: false,
   },
-
 
   status: {
     type: String,
@@ -61,12 +65,10 @@ const serviceSchema = new mongoose.Schema({
     default: "active",
   },
 
-
   createdAt: {
     type: Date,
     default: Date.now,
   },
-
 
   updatedAt: {
     type: Date,
@@ -75,5 +77,12 @@ const serviceSchema = new mongoose.Schema({
 
 });
 
+// Auto-generate `schedule` from day + time before saving,
+// and keep `updatedAt` current on every save.
+serviceSchema.pre("save", function (next) {
+  this.schedule = `${this.day}, ${this.time}`;
+  this.updatedAt = Date.now();
+  next();
+});
 
 module.exports = mongoose.model("Service", serviceSchema);
