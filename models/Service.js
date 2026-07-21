@@ -28,7 +28,6 @@ const serviceSchema = new mongoose.Schema({
 
   schedule: {
     type: String,
-    // no longer required directly — auto-generated below from day + time
   },
 
   category: {
@@ -77,8 +76,6 @@ const serviceSchema = new mongoose.Schema({
 
 });
 
-// Auto-generate `schedule` from day + time before saving,
-// and keep `updatedAt` current on every save.
 serviceSchema.pre("save", function (next) {
   this.schedule = `${this.day}, ${this.time}`;
   this.updatedAt = Date.now();
