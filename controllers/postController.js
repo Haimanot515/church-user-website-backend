@@ -111,18 +111,18 @@ exports.createPost = async (req, res) => {
       imageUrl: imageUrl,
 
 
-      author: req.body.author,
+      author: req.user.id, // from authMiddleware — decoded JWT payload uses "id"
 
       category: req.body.category,
 
       language: req.body.language,
 
 
-      isTrending: req.body.isTrending || false,
+      isTrending: req.body.isTrending === "true",
 
-      isRecommended: req.body.isRecommended || false,
+      isRecommended: req.body.isRecommended === "true",
 
-      isFeatured: req.body.isFeatured || false,
+      isFeatured: req.body.isFeatured === "true",
 
 
       status: req.body.status || "draft",
@@ -177,22 +177,38 @@ exports.updatePost = async (req, res) => {
     }
 
 
+    const updateData = {
+
+      ...req.body,
+
+      ...(imageUrl && {
+        imageUrl: imageUrl
+      }),
+
+      updatedAt: Date.now()
+
+    };
+
+
+    // Convert boolean fields from FormData strings if present
+    if (req.body.isTrending !== undefined) {
+      updateData.isTrending = req.body.isTrending === "true";
+    }
+
+    if (req.body.isRecommended !== undefined) {
+      updateData.isRecommended = req.body.isRecommended === "true";
+    }
+
+    if (req.body.isFeatured !== undefined) {
+      updateData.isFeatured = req.body.isFeatured === "true";
+    }
+
 
     const post = await Post.findByIdAndUpdate(
 
       req.params.id,
 
-      {
-
-        ...req.body,
-
-        ...(imageUrl && {
-          imageUrl:imageUrl
-        }),
-
-        updatedAt: Date.now()
-
-      },
+      updateData,
 
       {
         new:true
