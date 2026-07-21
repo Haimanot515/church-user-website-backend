@@ -75,16 +75,16 @@ exports.createMedia = async (req, res) => {
     const media = new Media({
       title: req.body.title,
       description: req.body.description,
-      mediaType: req.body.mediaType,
+      mediaType: req.body.type, // frontend sends "type", schema field is "mediaType"
       mediaUrl,
       thumbnail,
       duration: req.body.duration,
-      author: req.body.author,
+      author: req.user.id, // from authMiddleware — decoded JWT payload uses "id"
       category: req.body.category,
       language: req.body.language,
-      isTrending: req.body.isTrending || false,
-      isRecommended: req.body.isRecommended || false,
-      isFeatured: req.body.isFeatured || false,
+      isTrending: req.body.isTrending === "true",
+      isRecommended: req.body.isRecommended === "true",
+      isFeatured: req.body.isFeatured === "true",
       status: req.body.status || "draft",
       publishedAt:
         req.body.status === "published"
@@ -121,14 +121,35 @@ exports.updateMedia = async (req, res) => {
       }
     }
 
+    const updateData = {
+      ...req.body,
+      ...(mediaUrl && { mediaUrl }),
+      ...(thumbnail && { thumbnail }),
+      updatedAt: Date.now(),
+    };
+
+    // Frontend sends "type", schema field is "mediaType"
+    if (req.body.type !== undefined) {
+      updateData.mediaType = req.body.type;
+      delete updateData.type;
+    }
+
+    // Convert boolean fields from FormData strings if present
+    if (req.body.isTrending !== undefined) {
+      updateData.isTrending = req.body.isTrending === "true";
+    }
+
+    if (req.body.isRecommended !== undefined) {
+      updateData.isRecommended = req.body.isRecommended === "true";
+    }
+
+    if (req.body.isFeatured !== undefined) {
+      updateData.isFeatured = req.body.isFeatured === "true";
+    }
+
     const media = await Media.findByIdAndUpdate(
       req.params.id,
-      {
-        ...req.body,
-        ...(mediaUrl && { mediaUrl }),
-        ...(thumbnail && { thumbnail }),
-        updatedAt: Date.now(),
-      },
+      updateData,
       {
         new: true,
       }
