@@ -70,10 +70,9 @@ const serviceSchema = new mongoose.Schema({
   },
 });
 
-serviceSchema.pre("save", function (next) {
+serviceSchema.pre("save", async function () {
   this.schedule = `${this.day}, ${this.time}`;
   this.updatedAt = Date.now();
-  next();
 });
 
 module.exports = mongoose.model("Service", serviceSchema);
