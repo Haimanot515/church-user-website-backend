@@ -56,7 +56,7 @@ router.post(
   "/",
   auth,
   adminAuth,
-  upload.single("media"),
+  upload.single("file"),
   createMedia
 );
 
@@ -66,7 +66,7 @@ router.put(
   "/:id",
   auth,
   adminAuth,
-  upload.single("media"),
+  upload.single("file"),
   updateMedia
 );
 
