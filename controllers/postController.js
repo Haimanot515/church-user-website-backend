@@ -21,18 +21,40 @@ const uploadToCloudinary = (fileBuffer) => {
 
 
 
-// GET ALL POSTS (Newest first)
+// GET ALL POSTS (Newest first, paginated)
+// Query params: ?page=1&limit=10
 exports.getPosts = async (req, res) => {
   try {
 
-    const posts = await Post.find()
-      .populate("author", "name")
-      .populate("category", "name")
-      .populate("language", "name code")
-      .sort({ createdAt: -1, _id: -1 });
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
 
+    const [posts, totalPosts] = await Promise.all([
 
-    res.json(posts);
+      Post.find()
+        .populate("author", "name")
+        .populate("category", "name")
+        .populate("language", "name code")
+        .sort({ createdAt: -1, _id: -1 })
+        .skip(skip)
+        .limit(limit),
+
+      Post.countDocuments()
+
+    ]);
+
+    res.json({
+
+      posts,
+
+      currentPage: page,
+
+      totalPages: Math.ceil(totalPosts / limit),
+
+      totalPosts
+
+    });
 
   } catch (err) {
 
@@ -111,7 +133,7 @@ exports.createPost = async (req, res) => {
       imageUrl: imageUrl,
 
 
-      author: req.user.id, // from authMiddleware — decoded JWT payload uses "id"
+      author: req.user.id,
 
       category: req.body.category,
 
@@ -190,7 +212,6 @@ exports.updatePost = async (req, res) => {
     };
 
 
-    // Convert boolean fields from FormData strings if present
     if (req.body.isTrending !== undefined) {
       updateData.isTrending = req.body.isTrending === "true";
     }
