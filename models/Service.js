@@ -1,7 +1,6 @@
 const mongoose = require("mongoose");
 
 const serviceSchema = new mongoose.Schema({
-
   title: {
     type: String,
     required: true,
@@ -12,9 +11,7 @@ const serviceSchema = new mongoose.Schema({
     required: true,
   },
 
-  imageUrl: {
-    type: String,
-  },
+  imageUrl: String,
 
   day: {
     type: String,
@@ -40,7 +37,7 @@ const serviceSchema = new mongoose.Schema({
       "Youth",
       "Ministry",
       "Outreach",
-      "Other"
+      "Other",
     ],
     default: "Other",
   },
@@ -57,23 +54,20 @@ const serviceSchema = new mongoose.Schema({
 
   status: {
     type: String,
-    enum: [
-      "active",
-      "inactive"
-    ],
+    enum: ["active", "inactive"],
     default: "active",
   },
 
   createdAt: {
     type: Date,
     default: Date.now,
+    index: true,
   },
 
   updatedAt: {
     type: Date,
     default: Date.now,
-  }
-
+  },
 });
 
 serviceSchema.pre("save", function (next) {
