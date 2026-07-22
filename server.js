@@ -40,7 +40,8 @@ app.use(
       "http://localhost:5173", 
       "http://localhost:5173",
       "https://church-website-admin.onrender.com",
-      "https://my-portfolio-l9o0.onrender.com"
+      "https://my-portfolio-l9o0.onrender.com",
+      "https://church-user-website-frontend.onrender.com"
     ],
     credentials: true,
   })
