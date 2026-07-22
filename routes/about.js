@@ -5,7 +5,7 @@ const upload = require("../middleware/uploadMiddleware");
 const { getAbout, createAbout, updateAbout } = require("../controllers/aboutController");
 
 // GET: Publicly accessible to view the about section
-router.get("/", auth,getAbout);
+router.get("/",getAbout);
 
 // POST: Restricted to admin; used to create the about section for the first time
 router.post("/", auth,adminAuth, upload.single("image"), createAbout);

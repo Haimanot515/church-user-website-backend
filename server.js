@@ -16,6 +16,8 @@ const projectsRouter = require("./routes/projects");
 const skillsRouter = require("./routes/skills");
 const contactRoutes = require("./routes/contact");
 const aboutRoutes = require("./routes/about");
+const promotionRoutes = require("./routes/promotion");
+
 const adminRoutes = require("./routes/admin");
 const testimonialRoutes = require("./routes/testimonial");
 
@@ -38,7 +40,7 @@ app.use(
       process.env.CLIENT_URL, 
       "http://localhost:5176",
       "http://localhost:5173", 
-      "http://localhost:5173",
+      "http://localhost:5174",
       "https://church-website-admin.onrender.com",
       "https://my-portfolio-l9o0.onrender.com",
       "https://church-user-website-frontend.onrender.com"
@@ -97,6 +99,8 @@ const startServer = async () => {
     app.use("/api/skills", skillsRouter);
     app.use("/api/contact", contactRoutes);
     app.use("/api/about", aboutRoutes);
+    app.use("/api/promotions", promotionRoutes);
+
     app.use("/api/admin", adminRoutes);
     app.use("/api/testimonials", testimonialRoutes);
 

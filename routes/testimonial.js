@@ -10,7 +10,7 @@ const {
 } = require("../controllers/testimonialController");
 
 // GET: Publicly accessible to view the expert feed/testimonials
-router.get("/",auth, getTestimonials);
+router.get("/",getTestimonials);
 
 // POST: Restricted to admin; used to add a new expert testimonial with an avatar
 router.post("/", auth,adminAuth, upload.single("avatar"), createTestimonial);
