@@ -13,8 +13,13 @@ const {
 } = require("../controllers/promotionController");
 
 
-// GET: Publicly accessible - get all promotions
-router.get("/", auth, getPromotion);
+// PUBLIC: get all promotions — no auth, so the homepage can load it
+router.get("/", getPromotion);
+
+
+// PUBLIC: get only the most recent promotion — put this ABOVE any "/:id"
+// route you add later, or "latest" will get swallowed as an :id value
+router.get("/latest", getLatestPromotion);
 
 
 // POST: Admin only - create promotion
