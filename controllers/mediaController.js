@@ -196,6 +196,7 @@ exports.getLatestMedia = async (req, res) => {
     const media = await Media.find({
       status: "published",
     })
+      .populate("category", "name")
       .sort({ createdAt: -1 })
       .limit(10);
 
@@ -213,7 +214,9 @@ exports.getTrendingMedia = async (req, res) => {
     const media = await Media.find({
       status: "published",
       isTrending: true,
-    }).sort({ createdAt: -1 });
+    })
+      .populate("category", "name")
+      .sort({ createdAt: -1 });
 
     res.json(media);
   } catch (err) {
@@ -229,7 +232,9 @@ exports.getFeaturedMedia = async (req, res) => {
     const media = await Media.find({
       status: "published",
       isFeatured: true,
-    }).sort({ createdAt: -1 });
+    })
+      .populate("category", "name")
+      .sort({ createdAt: -1 });
 
     res.json(media);
   } catch (err) {
@@ -245,7 +250,9 @@ exports.getRecommendedMedia = async (req, res) => {
     const media = await Media.find({
       status: "published",
       isRecommended: true,
-    }).sort({ createdAt: -1 });
+    })
+      .populate("category", "name")
+      .sort({ createdAt: -1 });
 
     res.json(media);
   } catch (err) {
@@ -261,7 +268,9 @@ exports.getMediaByType = async (req, res) => {
     const media = await Media.find({
       status: "published",
       mediaType: req.params.type,
-    }).sort({ createdAt: -1 });
+    })
+      .populate("category", "name")
+      .sort({ createdAt: -1 });
 
     res.json(media);
   } catch (err) {
