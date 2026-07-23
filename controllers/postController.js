@@ -1,4 +1,5 @@
 const Post = require("../models/Post");
+const Category = require("../models/Category");
 const cloudinary = require("../config/cloudinary");
 
 
@@ -22,7 +23,7 @@ const uploadToCloudinary = (fileBuffer) => {
 
 
 // GET ALL POSTS (Newest first, paginated)
-// Query params: ?page=1&limit=10
+// Query params: ?page=1&limit=10&category=<name>
 exports.getPosts = async (req, res) => {
   try {
 
@@ -30,9 +31,28 @@ exports.getPosts = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
+    // === ADDED: resolve category name -> id, and build the filter ===
+    const filter = {};
+
+    if (req.query.category) {
+      const categoryDoc = await Category.findOne({ name: req.query.category });
+
+      if (categoryDoc) {
+        filter.category = categoryDoc._id;
+      } else {
+        // No matching category — return an empty result instead of all posts
+        return res.json({
+          posts: [],
+          currentPage: page,
+          totalPages: 0,
+          totalPosts: 0
+        });
+      }
+    }
+
     const [posts, totalPosts] = await Promise.all([
 
-      Post.find()
+      Post.find(filter)
         .populate("author", "name")
         .populate("category", "name")
         .populate("language", "name code")
@@ -40,7 +60,7 @@ exports.getPosts = async (req, res) => {
         .skip(skip)
         .limit(limit),
 
-      Post.countDocuments()
+      Post.countDocuments(filter)
 
     ]);
 
