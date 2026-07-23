@@ -18,6 +18,7 @@ const contactRoutes = require("./routes/contact");
 const aboutRoutes = require("./routes/about");
 const promotionRoutes = require("./routes/promotion");
 const subscriberRoutes = require("./routes/subscriber");
+const churchRoutes = require("./routes/church");
 
 const adminRoutes = require("./routes/admin");
 const testimonialRoutes = require("./routes/testimonial");
@@ -102,6 +103,7 @@ const startServer = async () => {
     app.use("/api/about", aboutRoutes);
     app.use("/api/promotions", promotionRoutes);
     app.use("/api/subscribers", subscriberRoutes);
+    app.use("/api/churches", churchRoutes);
 
     app.use("/api/admin", adminRoutes);
     app.use("/api/testimonials", testimonialRoutes);
