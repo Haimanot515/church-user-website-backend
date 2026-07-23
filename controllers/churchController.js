@@ -232,41 +232,37 @@ exports.deleteChurch = async(req,res)=>{
 
 
 // CREATE ASSIGNMENT
-exports.createAssignment = async(req,res)=>{
+// CREATE ASSIGNMENT
+exports.createAssignment = async (req, res) => {
+  try {
+    const isCurrent = req.body.isCurrent !== undefined ? req.body.isCurrent : true;
 
-  try{
+    // If this assignment is being marked current, unset any other
+    // "current" assignment for the same user first so getCurrentChurch
+    // never finds more than one match.
+    if (isCurrent) {
+      await ChurchAssignment.updateMany(
+        { user: req.body.user, isCurrent: true },
+        { isCurrent: false }
+      );
+    }
 
-    const assignment =
-      await ChurchAssignment.create({
-
-        user:req.body.user,
-
-        church:req.body.church,
-
-        role:req.body.role,
-
-        servingSince:req.body.servingSince,
-
-        description:req.body.description,
-
-        isCurrent:req.body.isCurrent
-
-      });
-
-
-    res.status(201).json(assignment);
-
-
-  }catch(err){
-
-    res.status(500).json({
-      message:err.message
+    const assignment = await ChurchAssignment.create({
+      user: req.body.user,
+      church: req.body.church,
+      role: req.body.role,
+      servingSince: req.body.servingSince,
+      description: req.body.description,
+      isCurrent,
     });
 
+    res.status(201).json(assignment);
+  } catch (err) {
+    res.status(500).json({
+      message: err.message,
+    });
   }
-
 };
-
 
 
 
