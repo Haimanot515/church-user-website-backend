@@ -16,6 +16,7 @@ const {
   createAssignment,
   getAssignments,
   getCurrentChurch,
+  getLeadershipChurch,
   deleteAssignment,
 } = require("../controllers/churchController");
 
@@ -31,7 +32,10 @@ router.post("/assignment", auth, adminAuth, createAssignment);
 // PUBLIC: Get all assignments
 router.get("/assignments", getAssignments);
 
-// PUBLIC: Get current church of a priest
+// PUBLIC: Get the featured/primary leader's current church (no userId needed)
+router.get("/current", getLeadershipChurch);
+
+// PUBLIC: Get current church of a specific priest/user
 router.get("/current/:userId", getCurrentChurch);
 
 // ADMIN: Delete assignment

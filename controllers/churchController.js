@@ -232,18 +232,29 @@ exports.deleteChurch = async(req,res)=>{
 
 
 // CREATE ASSIGNMENT
-// CREATE ASSIGNMENT
 exports.createAssignment = async (req, res) => {
   try {
     const isCurrent = req.body.isCurrent !== undefined ? req.body.isCurrent : true;
+    const isPrimary = req.body.isPrimary === true;
 
     // If this assignment is being marked current, unset any other
-    // "current" assignment for the same user first so getCurrentChurch
+    // "current" assignment for the same user first so a per-user lookup
     // never finds more than one match.
     if (isCurrent) {
       await ChurchAssignment.updateMany(
         { user: req.body.user, isCurrent: true },
         { isCurrent: false }
+      );
+    }
+
+    // Only one assignment across the ENTIRE collection should ever be
+    // "primary" (the one featured on the public Church page), regardless
+    // of which user it belongs to. Enforce that here instead of trusting
+    // whoever sets the flag to remember to unset the old one.
+    if (isPrimary) {
+      await ChurchAssignment.updateMany(
+        { isPrimary: true },
+        { isPrimary: false }
       );
     }
 
@@ -254,6 +265,7 @@ exports.createAssignment = async (req, res) => {
       servingSince: req.body.servingSince,
       description: req.body.description,
       isCurrent,
+      isPrimary,
     });
 
     res.status(201).json(assignment);
@@ -266,7 +278,9 @@ exports.createAssignment = async (req, res) => {
 
 
 
-// GET CURRENT CHURCH OF PRIEST
+
+// GET CURRENT CHURCH OF A SPECIFIC USER
+// (kept for cases like an admin viewing their own profile)
 exports.getCurrentChurch = async(req,res)=>{
 
   try{
@@ -298,6 +312,36 @@ exports.getCurrentChurch = async(req,res)=>{
 
   }
 
+};
+
+
+
+
+// GET THE PRIMARY LEADER'S CURRENT CHURCH (public, no userId needed)
+// Shows the one featured pastor/leader on the public Church page —
+// not a list of all users' assignments.
+exports.getLeadershipChurch = async (req, res) => {
+  try {
+
+    const assignment = await ChurchAssignment.findOne({
+      isCurrent: true,
+      isPrimary: true,
+    })
+      .populate("church")
+      .populate("user");
+
+    if (!assignment)
+      return res.status(404).json({
+        message: "No primary leader assignment found",
+      });
+
+    res.json(assignment);
+
+  } catch (err) {
+    res.status(500).json({
+      message: err.message,
+    });
+  }
 };
 
 
