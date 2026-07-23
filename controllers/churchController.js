@@ -39,6 +39,18 @@ exports.createChurch = async (req, res) => {
       image = result.secure_url;
     }
 
+    const isPrimary = req.body.isPrimary === true || req.body.isPrimary === "true";
+
+    // Only one church across the ENTIRE collection should ever be
+    // "primary" (the one shown as the Hero on the public page).
+    // Unset any existing primary before creating the new one.
+    if (isPrimary) {
+      await Church.updateMany(
+        { isPrimary: true },
+        { isPrimary: false }
+      );
+    }
+
 
     const church = await Church.create({
 
@@ -62,7 +74,9 @@ exports.createChurch = async (req, res) => {
 
       serviceTime: req.body.serviceTime,
 
-      isFeatured: req.body.isFeatured
+      isFeatured: req.body.isFeatured,
+
+      isPrimary
 
     });
 
@@ -141,6 +155,31 @@ exports.getChurchById = async(req,res)=>{
 
 
 
+// GET THE PRIMARY CHURCH (public, powers the Hero section)
+exports.getPrimaryChurch = async (req, res) => {
+  try {
+
+    const church = await Church.findOne({
+      isPrimary: true,
+    });
+
+    if (!church)
+      return res.status(404).json({
+        message: "No primary church found",
+      });
+
+    res.json(church);
+
+  } catch (err) {
+    res.status(500).json({
+      message: err.message,
+    });
+  }
+};
+
+
+
+
 // UPDATE CHURCH
 exports.updateChurch = async(req,res)=>{
 
@@ -159,6 +198,18 @@ exports.updateChurch = async(req,res)=>{
 
     }
 
+    const isPrimary = req.body.isPrimary === true || req.body.isPrimary === "true";
+
+    // Same uniqueness rule on update: if this church is being marked
+    // primary, unset whichever church currently holds that flag first
+    // (excluding this church itself).
+    if (isPrimary) {
+      await Church.updateMany(
+        { _id: { $ne: req.params.id }, isPrimary: true },
+        { isPrimary: false }
+      );
+    }
+
 
     const church =
       await Church.findByIdAndUpdate(
@@ -170,6 +221,10 @@ exports.updateChurch = async(req,res)=>{
 
           ...(image && {
             image
+          }),
+
+          ...(req.body.isPrimary !== undefined && {
+            isPrimary
           })
 
         },

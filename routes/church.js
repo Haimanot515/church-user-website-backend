@@ -8,6 +8,7 @@ const {
   // Church
   getChurches,
   getChurchById,
+  getPrimaryChurch,
   createChurch,
   updateChurch,
   deleteChurch,
@@ -44,6 +45,9 @@ router.delete("/assignment/:id", auth, adminAuth, deleteAssignment);
 // =========================
 // CHURCH ROUTES
 // =========================
+
+// PUBLIC: Get the primary church (powers the Hero section)
+router.get("/primary", getPrimaryChurch);
 
 // PUBLIC: Get all churches
 router.get("/", getChurches);

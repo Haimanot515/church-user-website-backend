@@ -48,6 +48,11 @@ const churchSchema = new mongoose.Schema(
       default: false,
     },
 
+    isPrimary: {
+      type: Boolean,
+      default: false,
+    },
+
   },
   {
     timestamps: true,
