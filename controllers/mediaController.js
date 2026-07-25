@@ -19,6 +19,33 @@ const uploadToCloudinary = (fileBuffer) => {
   });
 };
 
+// Helper: build thumbnail URL depending on what got uploaded
+const buildThumbnail = (result) => {
+  if (!result) return "";
+
+  // Video -> Cloudinary can grab a frame as .jpg
+  if (result.resource_type === "video") {
+    return result.secure_url.replace(/\.\w+$/, ".jpg");
+  }
+
+  // PDF -> Cloudinary uploads PDFs as resource_type "image", format "pdf".
+  // Render page 1 as a jpg cover.
+  if (result.resource_type === "image" && result.format === "pdf") {
+    return cloudinary.url(result.public_id, {
+      resource_type: "image",
+      page: 1,
+      format: "jpg",
+      transformation: [{ width: 500, crop: "fit" }],
+      version: result.version,
+    });
+  }
+
+  return "";
+};
+
+// Helper: strip empty-string refs so Mongoose doesn't choke on ObjectId cast
+const cleanRef = (value) => (value === "" || value === undefined ? undefined : value);
+
 // GET ALL MEDIA
 exports.getMedia = async (req, res) => {
   try {
@@ -66,10 +93,7 @@ exports.createMedia = async (req, res) => {
       const result = await uploadToCloudinary(req.file.buffer);
 
       mediaUrl = result.secure_url;
-
-      if (result.resource_type === "video") {
-        thumbnail = result.secure_url.replace(/\.\w+$/, ".jpg");
-      }
+      thumbnail = buildThumbnail(result);
     }
 
     const media = new Media({
@@ -80,8 +104,8 @@ exports.createMedia = async (req, res) => {
       thumbnail,
       duration: req.body.duration,
       author: req.user.id, // from authMiddleware — decoded JWT payload uses "id"
-      category: req.body.category,
-      language: req.body.language,
+      category: cleanRef(req.body.category), // avoids "" -> ObjectId cast error
+      language: cleanRef(req.body.language),
       isTrending: req.body.isTrending === "true",
       isRecommended: req.body.isRecommended === "true",
       isFeatured: req.body.isFeatured === "true",
@@ -115,10 +139,7 @@ exports.updateMedia = async (req, res) => {
       const result = await uploadToCloudinary(req.file.buffer);
 
       mediaUrl = result.secure_url;
-
-      if (result.resource_type === "video") {
-        thumbnail = result.secure_url.replace(/\.\w+$/, ".jpg");
-      }
+      thumbnail = buildThumbnail(result);
     }
 
     const updateData = {
@@ -132,6 +153,14 @@ exports.updateMedia = async (req, res) => {
     if (req.body.type !== undefined) {
       updateData.mediaType = req.body.type;
       delete updateData.type;
+    }
+
+    // Avoid "" -> ObjectId cast errors on update too
+    if (req.body.category !== undefined) {
+      updateData.category = cleanRef(req.body.category);
+    }
+    if (req.body.language !== undefined) {
+      updateData.language = cleanRef(req.body.language);
     }
 
     // Convert boolean fields from FormData strings if present
