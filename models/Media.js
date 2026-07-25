@@ -22,7 +22,7 @@ const mediaSchema = new mongoose.Schema({
 
   mediaType: {
     type: String,
-    enum: ["photo", "video", "audio"],
+    enum: ["photo", "video", "audio","document"],
     required: true,
   },
 
