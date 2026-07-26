@@ -1,4 +1,19 @@
 const ChurchStory = require("../models/ChurchStory");
+const cloudinary = require("../config/cloudinary");
+
+// Helper function to handle Cloudinary stream uploads
+const uploadToCloudinary = (fileBuffer) => {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { folder: "church-story" },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result);
+      }
+    );
+    stream.end(fileBuffer);
+  });
+};
 
 // GET /church-story?page=&limit=
 // Publicly accessible — returns chapters sorted oldest-first (by order, then year)
@@ -41,12 +56,21 @@ exports.getChurchStoryById = async (req, res) => {
 // Admin only
 exports.createChurchStory = async (req, res) => {
   try {
-    const payload = { ...req.body };
-    if (req.file) payload.photo = req.file.path || req.file.location;
+    let photoUrl = "";
 
-    const story = await ChurchStory.create(payload);
+    if (req.file) {
+      const result = await uploadToCloudinary(req.file.buffer);
+      photoUrl = result.secure_url;
+    }
+
+    const story = await ChurchStory.create({
+      ...req.body,
+      ...(photoUrl && { photo: photoUrl }),
+    });
+
     res.status(201).json(story);
   } catch (err) {
+    console.error(err);
     res.status(400).json({ message: err.message });
   }
 };
@@ -55,16 +79,26 @@ exports.createChurchStory = async (req, res) => {
 // Admin only
 exports.updateChurchStory = async (req, res) => {
   try {
-    const payload = { ...req.body };
-    if (req.file) payload.photo = req.file.path || req.file.location;
+    let photoUrl = "";
 
-    const story = await ChurchStory.findByIdAndUpdate(req.params.id, payload, {
-      new: true,
-      runValidators: true,
-    });
+    if (req.file) {
+      const result = await uploadToCloudinary(req.file.buffer);
+      photoUrl = result.secure_url;
+    }
+
+    const story = await ChurchStory.findByIdAndUpdate(
+      req.params.id,
+      {
+        ...req.body,
+        ...(photoUrl && { photo: photoUrl }),
+      },
+      { new: true, runValidators: true }
+    );
+
     if (!story) return res.status(404).json({ message: "Chapter not found" });
     res.json(story);
   } catch (err) {
+    console.error(err);
     res.status(400).json({ message: err.message });
   }
 };
