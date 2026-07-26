@@ -1,4 +1,4 @@
-const About = require("../models/About");
+const About = require("../models/Aboutchurchhero");
 const cloudinary = require("../config/cloudinary");
 
 // Helper function to handle Cloudinary stream uploads
