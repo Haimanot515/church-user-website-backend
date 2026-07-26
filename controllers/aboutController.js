@@ -39,6 +39,7 @@ exports.createAbout = async (req, res) => {
 
     const newAbout = new About({
       title: req.body.title,
+      churchLeader: req.body.churchLeader,
       description: req.body.description,
       image: imageUrl,
     });
