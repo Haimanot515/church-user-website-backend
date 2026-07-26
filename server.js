@@ -21,7 +21,7 @@ const subscriberRoutes = require("./routes/subscriber");
 const churchRoutes = require("./routes/church");
 
 const adminRoutes = require("./routes/admin");
-const testimonialRoutes = require("./routes/testimonial");
+const churchPersonRoutes = require("./routes/churchPerson");
 
 // --- Hero Triad Routes ---
 const homeHeroRoutes = require("./routes/homeHero"); 
@@ -106,7 +106,7 @@ const startServer = async () => {
     app.use("/api/churches", churchRoutes);
 
     app.use("/api/admin", adminRoutes);
-    app.use("/api/testimonials", testimonialRoutes);
+    app.use("/api/church-persons", churchPersonRoutes);
 
     // 🆕 PLURALIZED: Matches 'homeheros' collection
     app.use("/api/homeheros", homeHeroRoutes);      
