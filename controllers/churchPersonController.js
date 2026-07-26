@@ -1,4 +1,4 @@
-const ChurchPerson = require("../models/churchPerson");
+const ChurchPerson = require("../models/ChurchPerson");
 const cloudinary = require("../config/cloudinary");
 
 // Helper function to handle Cloudinary stream uploads (supports multiple photos)
