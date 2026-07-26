@@ -105,7 +105,7 @@ const startServer = async () => {
     app.use("/api/promotions", promotionRoutes);
     app.use("/api/subscribers", subscriberRoutes);
     app.use("/api/churches", churchRoutes);
-    app.use("/church-story", churchStoryRoutes);
+    app.use("/api/church-story", churchStoryRoutes);
 
     app.use("/api/admin", adminRoutes);
     app.use("/api/church-persons", churchPersonRoutes);
