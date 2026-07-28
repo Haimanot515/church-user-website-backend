@@ -1,126 +1,125 @@
 const HomeHero = require("../models/homeHero");
 const cloudinary = require("../config/cloudinary");
 
-// @desc    Get Home Hero data (Latest entry)
-// @route   GET /api/home-hero
+// Helper: upload a single file buffer to Cloudinary
+const uploadToCloudinary = (fileBuffer) => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      { folder: "home_hero" },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result);
+      }
+    );
+    uploadStream.end(fileBuffer);
+  });
+};
+
+// @desc    Get ALL Home Hero entries (Newest First)
+// @route   GET /api/home-hero
 exports.getHero = async (req, res) => {
-  try {
-    const hero = await HomeHero.findOne().sort({ createdAt: -1 });
-
-    if (!hero) {
-      return res.status(404).json({ msg: "Hero section not found" });
-    }
-    res.json(hero);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ msg: "Server error" });
-  }
+  try {
+    const heroes = await HomeHero.find().sort({ createdAt: -1 });
+    res.json(heroes);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Server error" });
+  }
 };
 
-// @desc    Create or Replace Home Hero (Admin only)
-// @route   POST /api/home-hero
+// @desc    Create a new Home Hero entry (does NOT touch existing entries)
+// @route   POST /api/home-hero
 exports.createHero = async (req, res) => {
-  try {
-    const { title, subtitle, description, name, role, quote, story } = req.body;
+  try {
+    const { title, subtitle, description, name, role, quote, story } = req.body;
 
-    // 1. DROP logic: Clear existing records before creating a new one
-    await HomeHero.deleteMany({});
+    let imageUrl = "";
+    let storyImageUrl = "";
 
-    let imageUrl = "";
+    if (req.files?.image?.[0]) {
+      const result = await uploadToCloudinary(req.files.image[0].buffer);
+      imageUrl = result.secure_url;
+    }
 
-    // 2. Cloudinary Upload Logic for new record
-    if (req.file) {
-      const result = await new Promise((resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-          { folder: "home_hero" },
-          (error, result) => {
-            if (error) return reject(error);
-            resolve(result);
-          }
-        );
-        uploadStream.end(req.file.buffer);
-      });
-      imageUrl = result.secure_url;
-    }
+    if (req.files?.storyImage?.[0]) {
+      const result = await uploadToCloudinary(req.files.storyImage[0].buffer);
+      storyImageUrl = result.secure_url;
+    }
 
-    // 3. Create fresh record
-    const hero = await HomeHero.create({
-      title,
-      subtitle,
-      description,
-      name,
-      role,
-      quote,
-      story,
-      image: imageUrl
-    });
+    const hero = await HomeHero.create({
+      title,
+      subtitle,
+      description,
+      name,
+      role,
+      quote,
+      story,
+      image: imageUrl,
+      storyImage: storyImageUrl,
+    });
 
-    res.status(201).json(hero);
-  } catch (err) {
-    console.error("HomeHero Creation Error:", err);
-    res.status(500).json({ msg: "Server error" });
-  }
+    res.status(201).json(hero);
+  } catch (err) {
+    console.error("HomeHero Creation Error:", err);
+    res.status(500).json({ msg: "Server error" });
+  }
 };
 
-// @desc    Update Home Hero (Keep existing photo if not changed)
-// @route   PUT /api/home-hero
+// @desc    Update a specific Home Hero entry by ID (keeps existing images if not changed)
+// @route   PUT /api/home-hero/:id
 exports.updateHero = async (req, res) => {
-  try {
-    const updateData = {};
+  try {
+    const updateData = {};
 
-    // 1. Map body fields
-    // We removed the strict 'empty string' check that was blocking your description
-    const fields = ["title", "subtitle", "description", "name", "role", "quote", "story"];
-    fields.forEach((field) => {
-      if (req.body[field] !== undefined && req.body[field] !== "null") {
-        updateData[field] = req.body[field];
-      }
-    });
+    // Map body fields — only set fields that were actually provided
+    const fields = ["title", "subtitle", "description", "name", "role", "quote", "story"];
+    fields.forEach((field) => {
+      if (req.body[field] !== undefined && req.body[field] !== "null") {
+        updateData[field] = req.body[field];
+      }
+    });
 
-    // 2. Image Logic: Check if a NEW file is uploaded
-    if (req.file) {
-      const result = await new Promise((resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-          { folder: "home_hero" },
-          (error, result) => {
-            if (error) return reject(error);
-            resolve(result);
-          }
-        );
-        uploadStream.end(req.file.buffer);
-      });
-      updateData.image = result.secure_url;
-    }
+    // Only overwrite images if new files were uploaded
+    if (req.files?.image?.[0]) {
+      const result = await uploadToCloudinary(req.files.image[0].buffer);
+      updateData.image = result.secure_url;
+    }
 
-    // 3. Update the single document using $set
-    // This ensures only the fields provided are changed
-    const hero = await HomeHero.findOneAndUpdate(
-      {}, 
-      { $set: updateData }, 
-      {
-        new: true,
-        upsert: true,
-        runValidators: true,
-        setDefaultsOnInsert: true
-      }
-    );
+    if (req.files?.storyImage?.[0]) {
+      const result = await uploadToCloudinary(req.files.storyImage[0].buffer);
+      updateData.storyImage = result.secure_url;
+    }
 
-    res.json(hero);
-  } catch (err) {
-    console.error("HomeHero Update Error:", err);
-    res.status(500).json({ msg: "Server error" });
-  }
+    const hero = await HomeHero.findByIdAndUpdate(
+      req.params.id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
+
+    if (!hero) {
+      return res.status(404).json({ msg: "Home Hero entry not found" });
+    }
+
+    res.json(hero);
+  } catch (err) {
+    console.error("HomeHero Update Error:", err);
+    res.status(500).json({ msg: "Server error" });
+  }
 };
 
-// @desc    Delete all Home Hero data
-// @route   DELETE /api/home-hero
+// @desc    Delete a specific Home Hero entry by ID
+// @route   DELETE /api/home-hero/:id
 exports.deleteHero = async (req, res) => {
-  try {
-    // DROP logic: wipes the collection
-    await HomeHero.deleteMany({});
-    res.json({ msg: "Home Hero section deleted successfully" });
-  } catch (err) {
-    console.error("Delete Error:", err);
-    res.status(500).json({ msg: "Server error" });
-  }
+  try {
+    const hero = await HomeHero.findByIdAndDelete(req.params.id);
+
+    if (!hero) {
+      return res.status(404).json({ msg: "Home Hero entry not found" });
+    }
+
+    res.json({ msg: "Home Hero entry deleted successfully" });
+  } catch (err) {
+    console.error("Delete Error:", err);
+    res.status(500).json({ msg: "Server error" });
+  }
 };
