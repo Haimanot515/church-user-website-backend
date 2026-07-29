@@ -15,6 +15,7 @@ const {
 
   // Church Assignment
   createAssignment,
+  updateAssignment,
   getAssignments,
   getCurrentChurch,
   getLeadershipChurch,
@@ -27,8 +28,11 @@ const {
 // swallowed by the church id wildcard)
 // =========================
 
-// ADMIN: Assign priest/user to church
-router.post("/assignment", auth, adminAuth, createAssignment);
+// ADMIN: Assign priest/user to church (accepts the leader's photo)
+router.post("/assignment", auth, adminAuth, upload.single("image"), createAssignment);
+
+// ADMIN: Update an assignment (isCurrent / isPrimary / photo / etc.)
+router.put("/assignment/:id", auth, adminAuth, upload.single("image"), updateAssignment);
 
 // PUBLIC: Get all assignments
 router.get("/assignments", getAssignments);

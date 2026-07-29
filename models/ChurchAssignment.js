@@ -23,6 +23,12 @@ const churchAssignmentSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    // Photo of the leader for this assignment, shown on the
+    // "Where I Serve Now" card on the public Church page.
+    image: {
+      type: String,
+      default: "",
+    },
     isCurrent: {
       type: Boolean,
       default: true,

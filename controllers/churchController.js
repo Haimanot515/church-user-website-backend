@@ -289,14 +289,20 @@ exports.deleteChurch = async(req,res)=>{
 // CREATE ASSIGNMENT
 exports.createAssignment = async (req, res) => {
   try {
-    const isCurrent = req.body.isCurrent !== undefined ? req.body.isCurrent : true;
+    const isCurrent = req.body.isCurrent !== undefined
+      ? (req.body.isCurrent === true || req.body.isCurrent === "true")
+      : true;
 
-    // FIX: this used to be `req.body.isPrimary === true`, which only
-    // matched an actual boolean. Forms/FormData/JSON bodies usually send
-    // the string "true", so it was silently evaluating to false and the
-    // assignment never satisfied the { isCurrent: true, isPrimary: true }
-    // query that getLeadershipChurch (GET /churches/current) relies on.
     const isPrimary = req.body.isPrimary === true || req.body.isPrimary === "true";
+
+    // Leader photo, uploaded the same way as a church image — via
+    // multer + Cloudinary. Requires upload.single("image") on the
+    // route and the frontend to send a multipart/form-data body.
+    let image = "";
+    if (req.file) {
+      const result = await uploadToCloudinary(req.file.buffer);
+      image = result.secure_url;
+    }
 
     // If this assignment is being marked current, unset any other
     // "current" assignment for the same user first so a per-user lookup
@@ -325,6 +331,7 @@ exports.createAssignment = async (req, res) => {
       role: req.body.role,
       servingSince: req.body.servingSince,
       description: req.body.description,
+      image,
       isCurrent,
       isPrimary,
     });
@@ -341,10 +348,8 @@ exports.createAssignment = async (req, res) => {
 
 
 // UPDATE ASSIGNMENT
-// Lets an admin fix or change isCurrent / isPrimary (and other fields)
-// on an existing assignment without deleting and recreating it — e.g.
-// to patch an old record that was created before the isPrimary string
-// bug above was fixed.
+// Lets an admin fix or change isCurrent / isPrimary / image (and other
+// fields) on an existing assignment without deleting and recreating it.
 exports.updateAssignment = async (req, res) => {
   try {
     const updates = { ...req.body };
@@ -371,6 +376,11 @@ exports.updateAssignment = async (req, res) => {
           { isPrimary: false }
         );
       }
+    }
+
+    if (req.file) {
+      const result = await uploadToCloudinary(req.file.buffer);
+      updates.image = result.secure_url;
     }
 
     const assignment = await ChurchAssignment.findByIdAndUpdate(
