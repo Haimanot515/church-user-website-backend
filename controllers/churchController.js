@@ -290,7 +290,13 @@ exports.deleteChurch = async(req,res)=>{
 exports.createAssignment = async (req, res) => {
   try {
     const isCurrent = req.body.isCurrent !== undefined ? req.body.isCurrent : true;
-    const isPrimary = req.body.isPrimary === true;
+
+    // FIX: this used to be `req.body.isPrimary === true`, which only
+    // matched an actual boolean. Forms/FormData/JSON bodies usually send
+    // the string "true", so it was silently evaluating to false and the
+    // assignment never satisfied the { isCurrent: true, isPrimary: true }
+    // query that getLeadershipChurch (GET /churches/current) relies on.
+    const isPrimary = req.body.isPrimary === true || req.body.isPrimary === "true";
 
     // If this assignment is being marked current, unset any other
     // "current" assignment for the same user first so a per-user lookup
@@ -324,6 +330,63 @@ exports.createAssignment = async (req, res) => {
     });
 
     res.status(201).json(assignment);
+  } catch (err) {
+    res.status(500).json({
+      message: err.message,
+    });
+  }
+};
+
+
+
+
+// UPDATE ASSIGNMENT
+// Lets an admin fix or change isCurrent / isPrimary (and other fields)
+// on an existing assignment without deleting and recreating it — e.g.
+// to patch an old record that was created before the isPrimary string
+// bug above was fixed.
+exports.updateAssignment = async (req, res) => {
+  try {
+    const updates = { ...req.body };
+
+    if (req.body.isCurrent !== undefined) {
+      const isCurrent = req.body.isCurrent === true || req.body.isCurrent === "true";
+      updates.isCurrent = isCurrent;
+
+      if (isCurrent) {
+        await ChurchAssignment.updateMany(
+          { _id: { $ne: req.params.id }, user: req.body.user, isCurrent: true },
+          { isCurrent: false }
+        );
+      }
+    }
+
+    if (req.body.isPrimary !== undefined) {
+      const isPrimary = req.body.isPrimary === true || req.body.isPrimary === "true";
+      updates.isPrimary = isPrimary;
+
+      if (isPrimary) {
+        await ChurchAssignment.updateMany(
+          { _id: { $ne: req.params.id }, isPrimary: true },
+          { isPrimary: false }
+        );
+      }
+    }
+
+    const assignment = await ChurchAssignment.findByIdAndUpdate(
+      req.params.id,
+      updates,
+      { new: true }
+    )
+      .populate("church")
+      .populate("user");
+
+    if (!assignment)
+      return res.status(404).json({
+        message: "Assignment not found",
+      });
+
+    res.json(assignment);
   } catch (err) {
     res.status(500).json({
       message: err.message,
