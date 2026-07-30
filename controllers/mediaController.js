@@ -63,14 +63,16 @@ const buildThumbnail = (result) => {
 };
 
 // Helper: build the correct delivery URL for a fresh upload result.
-// For raw documents, force format explicitly so Cloudinary sets the
-// right Content-Type, and disable forced versioning so we don't end
-// up with a fake "v1" segment that 404s.
+// For raw documents: only add format:"pdf" if public_id doesn't
+// already carry an extension (adding it on top of an existing .pdf
+// would produce media/file.pdf.pdf, a broken path). force_version
+// disabled so we don't get a fake "v1" segment that 404s.
 const buildMediaUrl = (result) => {
   if (result.resource_type === "raw") {
+    const alreadyHasExt = /\.\w+$/.test(result.public_id);
     return cloudinary.url(result.public_id, {
       resource_type: "raw",
-      format: "pdf",
+      ...(alreadyHasExt ? {} : { format: "pdf" }),
       force_version: false,
     });
   }
@@ -93,9 +95,10 @@ const resolveResourceType = (mediaType) => (mediaType === "document" ? "raw" : "
 const withFreshUrl = (mediaDoc) => {
   const doc = mediaDoc.toObject ? mediaDoc.toObject() : mediaDoc;
   if (doc.resourceType === "raw" && doc.publicId) {
+    const alreadyHasExt = /\.\w+$/.test(doc.publicId);
     doc.mediaUrl = cloudinary.url(doc.publicId, {
       resource_type: "raw",
-      format: "pdf",
+      ...(alreadyHasExt ? {} : { format: "pdf" }),
       force_version: false,
     });
   }
