@@ -64,12 +64,14 @@ const buildThumbnail = (result) => {
 
 // Helper: build the correct delivery URL for a fresh upload result.
 // For raw documents, force format explicitly so Cloudinary sets the
-// right Content-Type regardless of the stored public_id's extension.
+// right Content-Type, and disable forced versioning so we don't end
+// up with a fake "v1" segment that 404s.
 const buildMediaUrl = (result) => {
   if (result.resource_type === "raw") {
     return cloudinary.url(result.public_id, {
       resource_type: "raw",
       format: "pdf",
+      force_version: false,
     });
   }
   return result.secure_url;
@@ -84,16 +86,17 @@ const cleanRef = (value) => (value === "" || value === undefined ? undefined : v
 const resolveResourceType = (mediaType) => (mediaType === "document" ? "raw" : "auto");
 
 // Helper: recompute mediaUrl at read-time for raw (document) records,
-// so any past extension/Content-Type issue self-heals without needing
-// to trust whatever string was saved at upload time. Requires publicId
-// to have been backfilled/saved — records without it keep their stored
-// mediaUrl as-is.
+// so any past extension/Content-Type/version issue self-heals without
+// needing to trust whatever string was saved at upload time. Requires
+// publicId to have been backfilled/saved — records without it keep
+// their stored mediaUrl as-is.
 const withFreshUrl = (mediaDoc) => {
   const doc = mediaDoc.toObject ? mediaDoc.toObject() : mediaDoc;
   if (doc.resourceType === "raw" && doc.publicId) {
     doc.mediaUrl = cloudinary.url(doc.publicId, {
       resource_type: "raw",
       format: "pdf",
+      force_version: false,
     });
   }
   return doc;
