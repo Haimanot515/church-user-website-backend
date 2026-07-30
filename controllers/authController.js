@@ -5,7 +5,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
 // Updated to use your Brevo SDK configuration
-const { sendEmail } = require("../config/nodemailer"); 
+const { sendEmail } = require("../config/nodemailer");
 
 /* ===========================
     REGISTER (SEND CODE)
@@ -47,9 +47,10 @@ exports.register = async (req, res) => {
       expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 min
     });
 
-   // 7. Prepare Professional HTML Email (Church-themed, Corrected Syntax)
-    const churchName = "Your Church Name"; // TODO: replace with real name or pass in as a param
-
+    // 7. Church-themed HTML email, matching Home.jsx / Home.css palette:
+    //    navy (#1c3a52 / #0f2438), gold (#cf9f3f), Cormorant Garamond
+    //    for display type, Nunito Sans for body, IBM Plex Mono for the
+    //    small eyebrow/label text, plus a simple gold cross accent.
     const htmlContent = `
     <!DOCTYPE html>
     <html>
@@ -59,103 +60,72 @@ exports.register = async (req, res) => {
       <style>
         @media screen and (max-width: 480px) {
           .card { width: 100% !important; border-radius: 0 !important; }
-          .brand-name { font-size: 30px !important; letter-spacing: -1px !important; }
+          .main-h1 { font-size: 32px !important; letter-spacing: -1px !important; }
           .otp { font-size: 26px !important; letter-spacing: 4px !important; }
-          .hero-pad { padding: 32px 20px !important; }
         }
       </style>
     </head>
-    <body style="margin: 0; padding: 0; background-color: #d5eaf3; font-family: 'Segoe UI', Arial, sans-serif;">
+    <body style="margin: 0; padding: 0; background-color: #d5eaf3; font-family: 'Nunito Sans', 'Segoe UI', Arial, sans-serif;">
       <center style="width: 100%; background-color: #d5eaf3; padding: 40px 0;">
-        <div class="card" style="max-width: 600px; border-radius: 14px; overflow: hidden; box-shadow: 0 24px 40px rgba(15,36,56,0.18); background-color: #ffffff;">
+        <div class="card" style="max-width: 600px; background-color: #ffffff; border: 1px solid #e3edf2; border-radius: 12px; overflow: hidden;">
 
-          <!-- HERO / HEADER — navy gradient like the site's hero section -->
-          <div class="hero-pad" style="padding: 48px 30px 40px 30px; text-align: center; background-color: #0f2438; background-image: linear-gradient(180deg, #1c3a52 0%, #0f2438 100%);">
+          <div style="padding: 40px 30px 30px 30px; text-align: center; background: linear-gradient(180deg, #1c3a52 0%, #0f2438 100%);">
+            <img src="${displayLogo}" style="width: 64px; height: 64px; border-radius: 10px; object-fit: cover; margin-bottom: 22px; border: 2px solid #cf9f3f;" />
 
-            <!-- Cross accent (table-safe, no SVG) -->
-            <table role="presentation" align="center" cellpadding="0" cellspacing="0" style="margin: 0 auto 22px auto;">
-              <tr>
-                <td align="center">
-                  <table role="presentation" cellpadding="0" cellspacing="0">
-                    <tr>
-                      <td style="width:22px; height:4px; background-color:#cf9f3f; font-size:0; line-height:0;">&nbsp;</td>
-                    </tr>
-                  </table>
-                  <div style="width:4px; height:22px; background-color:#cf9f3f; margin: -13px auto 0 auto;"></div>
-                </td>
-              </tr>
-            </table>
+            <svg width="30" height="42" viewBox="0 0 30 42" xmlns="http://www.w3.org/2000/svg" style="margin-bottom: 18px;">
+              <rect x="13" y="0" width="4" height="42" fill="#cf9f3f" />
+              <rect x="2" y="15" width="26" height="4" fill="#cf9f3f" />
+            </svg>
 
-            <p style="margin: 0 0 10px 0; font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: #cf9f3f;">
-              Account Verification
-            </p>
-
-            <h1 class="brand-name" style="margin: 0; font-family: Georgia, 'Times New Roman', serif; font-size: 38px; font-weight: 700; letter-spacing: -0.5px; color: #eaf3f8;">
-              ${churchName}
+            <h1 class="main-h1" style="
+              font-family: Georgia, 'Cormorant Garamond', serif;
+              font-size: 40px;
+              line-height: 1.1;
+              margin: 0;
+              letter-spacing: -1px;
+              color: #eaf3f8;
+              font-weight: 700;
+            ">
+              Verify your account
             </h1>
           </div>
 
-          <!-- BODY -->
-          <div style="padding: 42px 40px 30px 40px; text-align: center;">
-            <p style="font-size: 16px; color: #1c3a52; margin: 0 0 6px 0;">Peace be with you, <strong>${name}</strong>,</p>
-            <p style="font-size: 14.5px; color: #3d5a6c; line-height: 1.7; margin: 0 0 30px 0;">
-              Please use the verification code below to confirm it's really you. This helps keep our church community's accounts safe.
+          <div style="padding: 36px 40px 40px 40px; text-align: center;">
+            <p style="font-size: 16px; color: #1c3a52;">Peace be with you, <strong>${name}</strong>,</p>
+            <p style="font-size: 15px; color: #3d5a6c; line-height: 1.6;">
+              Use the verification code below to confirm your account and continue joining our church family online.
             </p>
 
-            <table role="presentation" align="center" cellpadding="0" cellspacing="0" style="margin: 0 auto;">
-              <tr>
-                <td style="padding: 22px 34px; background-color: #f7faf9; border: 1.5px solid #cf9f3f; border-radius: 10px;">
-                  <span class="otp" style="font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #0f2438; font-family: 'Courier New', monospace;">${code}</span>
-                </td>
-              </tr>
-            </table>
+            <div style="margin: 30px 0; padding: 20px; background-color: #f3f8fa; border: 1px solid #d5eaf3; border-radius: 8px; display: inline-block;">
+              <span class="otp" style="font-size: 34px; font-weight: 700; letter-spacing: 8px; color: #0f2438; font-family: 'IBM Plex Mono', monospace;">${code}</span>
+            </div>
 
-            <p style="font-size: 12.5px; color: #9aa9b3; margin: 22px 0 0 0;">
-              This code expires in 10 minutes. If you didn't request this, you can safely ignore this email.
+            <p style="font-size: 13px; color: #94a9b6; margin-top: 20px;">
+              This code expires in 10 minutes.
             </p>
           </div>
 
-          <!-- DIVIDER — small cross, like your section-cross-divider -->
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td align="center" style="padding: 6px 40px 26px 40px;">
-                <table role="presentation" cellpadding="0" cellspacing="0">
-                  <tr>
-                    <td style="width: 60px; height: 1px; background-color: #e6dcc6;">&nbsp;</td>
-                    <td style="width: 16px; height: 16px; text-align:center; font-size: 14px; color: #cf9f3f; padding: 0 8px;">&#10013;</td>
-                    <td style="width: 60px; height: 1px; background-color: #e6dcc6;">&nbsp;</td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-
-          <!-- FOOTER -->
-          <div style="background-color: #7a1010; padding: 26px; text-align: center;">
-            <p style="font-size: 12px; color: rgba(255,255,255,0.85); margin: 0; font-family: Georgia, serif;">
-              &copy; ${new Date().getFullYear()} ${churchName}. Rooted in grace, reaching toward the light.
-            </p>
-            <p style="font-size: 10.5px; color: rgba(255,255,255,0.55); margin: 6px 0 0 0; letter-spacing: 0.5px;">
-              This is an automated message — please do not reply directly to this email.
-            </p>
+          <div style="background-color: #f3f8fa; padding: 25px; border-top: 1px solid #e3edf2; text-align: center;">
+            <p style="font-size: 12px; color: #6a8296; margin: 0;">&copy; ${new Date().getFullYear()} Our Church</p>
+            <p style="font-size: 11px; color: #9db3c0; margin: 5px 0 0 0; font-weight: 600;">This is an automated message - please do not reply to this email.</p>
           </div>
-
         </div>
       </center>
     </body>
     </html>
     `;
+
     // 8. Send via Brevo API
     await sendEmail(
-        email, 
-        "Verification Code - Ethiopian Orthodox Tewahedo Church – Debre Selam Abune Gebre Menfes Kidus Church, Udine", 
-        htmlContent
+      email,
+      "Verify your account - Our Church",
+      htmlContent
     );
 
     res.json({ msg: "Verification code sent to your email." });
 
   } catch (err) {
-    console.error("❌ Registration/Brevo Error:", err);
+    console.error("Registration/Brevo Error:", err);
     res.status(500).json({ msg: "Server error during registration." });
   }
 };
@@ -219,7 +189,7 @@ exports.verify = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("❌ Verification Error:", err);
+    console.error("Verification Error:", err);
     res.status(500).json({ msg: "Server error during verification." });
   }
 };
@@ -265,7 +235,7 @@ exports.login = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("❌ Login Error:", err);
+    console.error("Login Error:", err);
     res.status(500).json({ msg: "Server error during login." });
   }
 };
