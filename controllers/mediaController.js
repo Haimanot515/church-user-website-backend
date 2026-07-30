@@ -2,12 +2,16 @@ const Media = require("../models/Media");
 const cloudinary = require("../config/cloudinary");
 
 // Upload media to Cloudinary
-const uploadToCloudinary = (fileBuffer) => {
+const uploadToCloudinary = (fileBuffer, resourceType = "auto") => {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
         folder: "media",
-        resource_type: "auto",
+        resource_type: resourceType,
+        // Preserve original filename/extension on raw uploads so
+        // public_id reliably ends in .pdf (helps buildThumbnail below)
+        use_filename: resourceType === "raw",
+        unique_filename: resourceType !== "raw",
       },
       (error, result) => {
         if (error) return reject(error);
@@ -28,9 +32,24 @@ const buildThumbnail = (result) => {
     return result.secure_url.replace(/\.\w+$/, ".jpg");
   }
 
-  // PDF -> Cloudinary uploads PDFs as resource_type "image", format "pdf".
-  // Render page 1 as a jpg cover.
+  // Old-style PDFs: uploaded as resource_type "image", format "pdf"
+  // (this is how PDFs landed before we switched documents to "raw")
   if (result.resource_type === "image" && result.format === "pdf") {
+    return cloudinary.url(result.public_id, {
+      resource_type: "image",
+      page: 1,
+      format: "jpg",
+      transformation: [{ width: 500, crop: "fit" }],
+      version: result.version,
+    });
+  }
+
+  // New-style PDFs: uploaded explicitly as resource_type "raw"
+  const isRawPdf =
+    result.resource_type === "raw" &&
+    (result.format === "pdf" || /\.pdf$/i.test(result.public_id));
+
+  if (isRawPdf) {
     return cloudinary.url(result.public_id, {
       resource_type: "image",
       page: 1,
@@ -45,6 +64,11 @@ const buildThumbnail = (result) => {
 
 // Helper: strip empty-string refs so Mongoose doesn't choke on ObjectId cast
 const cleanRef = (value) => (value === "" || value === undefined ? undefined : value);
+
+// Helper: decide Cloudinary resource_type from the frontend's "type" field.
+// Documents go up as "raw" so they aren't subject to the image-pipeline
+// PDF/ZIP delivery restriction; everything else keeps auto-detection.
+const resolveResourceType = (mediaType) => (mediaType === "document" ? "raw" : "auto");
 
 // GET ALL MEDIA
 exports.getMedia = async (req, res) => {
@@ -90,7 +114,8 @@ exports.createMedia = async (req, res) => {
     let thumbnail = "";
 
     if (req.file) {
-      const result = await uploadToCloudinary(req.file.buffer);
+      const resourceType = resolveResourceType(req.body.type);
+      const result = await uploadToCloudinary(req.file.buffer, resourceType);
 
       mediaUrl = result.secure_url;
       thumbnail = buildThumbnail(result);
@@ -136,7 +161,8 @@ exports.updateMedia = async (req, res) => {
     let thumbnail = "";
 
     if (req.file) {
-      const result = await uploadToCloudinary(req.file.buffer);
+      const resourceType = resolveResourceType(req.body.type);
+      const result = await uploadToCloudinary(req.file.buffer, resourceType);
 
       mediaUrl = result.secure_url;
       thumbnail = buildThumbnail(result);
