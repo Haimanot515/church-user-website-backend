@@ -16,6 +16,20 @@ const mediaSchema = new mongoose.Schema({
     required: true,
   },
 
+  // Cloudinary's raw identifier for the asset (e.g. "media/abc123").
+  // Only set for documents; lets us regenerate a correct delivery URL
+  // at read-time instead of trusting a possibly-stale mediaUrl string.
+  publicId: {
+    type: String,
+  },
+
+  // Cloudinary's resource_type for this asset: "image" for photos/old
+  // PDFs, "video" for videos, "raw" for new documents.
+  resourceType: {
+    type: String,
+    enum: ["image", "video", "raw"],
+  },
+
   thumbnail: {
     type: String,
   },

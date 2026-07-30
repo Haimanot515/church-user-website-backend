@@ -62,6 +62,19 @@ const buildThumbnail = (result) => {
   return "";
 };
 
+// Helper: build the correct delivery URL for a fresh upload result.
+// For raw documents, force format explicitly so Cloudinary sets the
+// right Content-Type regardless of the stored public_id's extension.
+const buildMediaUrl = (result) => {
+  if (result.resource_type === "raw") {
+    return cloudinary.url(result.public_id, {
+      resource_type: "raw",
+      format: "pdf",
+    });
+  }
+  return result.secure_url;
+};
+
 // Helper: strip empty-string refs so Mongoose doesn't choke on ObjectId cast
 const cleanRef = (value) => (value === "" || value === undefined ? undefined : value);
 
@@ -69,6 +82,22 @@ const cleanRef = (value) => (value === "" || value === undefined ? undefined : v
 // Documents go up as "raw" so they aren't subject to the image-pipeline
 // PDF/ZIP delivery restriction; everything else keeps auto-detection.
 const resolveResourceType = (mediaType) => (mediaType === "document" ? "raw" : "auto");
+
+// Helper: recompute mediaUrl at read-time for raw (document) records,
+// so any past extension/Content-Type issue self-heals without needing
+// to trust whatever string was saved at upload time. Requires publicId
+// to have been backfilled/saved — records without it keep their stored
+// mediaUrl as-is.
+const withFreshUrl = (mediaDoc) => {
+  const doc = mediaDoc.toObject ? mediaDoc.toObject() : mediaDoc;
+  if (doc.resourceType === "raw" && doc.publicId) {
+    doc.mediaUrl = cloudinary.url(doc.publicId, {
+      resource_type: "raw",
+      format: "pdf",
+    });
+  }
+  return doc;
+};
 
 // GET ALL MEDIA
 exports.getMedia = async (req, res) => {
@@ -79,7 +108,7 @@ exports.getMedia = async (req, res) => {
       .populate("language", "name code")
       .sort({ createdAt: -1, _id: -1 });
 
-    res.json(media);
+    res.json(media.map(withFreshUrl));
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -99,7 +128,7 @@ exports.getMediaById = async (req, res) => {
       });
     }
 
-    res.json(media);
+    res.json(withFreshUrl(media));
   } catch (err) {
     res.status(500).json({
       message: err.message,
@@ -112,13 +141,17 @@ exports.createMedia = async (req, res) => {
   try {
     let mediaUrl = "";
     let thumbnail = "";
+    let publicId;
+    let resourceType;
 
     if (req.file) {
-      const resourceType = resolveResourceType(req.body.type);
-      const result = await uploadToCloudinary(req.file.buffer, resourceType);
+      const rType = resolveResourceType(req.body.type);
+      const result = await uploadToCloudinary(req.file.buffer, rType);
 
-      mediaUrl = result.secure_url;
+      mediaUrl = buildMediaUrl(result);
       thumbnail = buildThumbnail(result);
+      publicId = result.public_id;
+      resourceType = result.resource_type;
     }
 
     const media = new Media({
@@ -126,6 +159,8 @@ exports.createMedia = async (req, res) => {
       description: req.body.description,
       mediaType: req.body.type, // frontend sends "type", schema field is "mediaType"
       mediaUrl,
+      publicId,
+      resourceType,
       thumbnail,
       duration: req.body.duration,
       author: req.user.id, // from authMiddleware — decoded JWT payload uses "id"
@@ -160,20 +195,23 @@ exports.updateMedia = async (req, res) => {
     let mediaUrl = "";
     let thumbnail = "";
 
-    if (req.file) {
-      const resourceType = resolveResourceType(req.body.type);
-      const result = await uploadToCloudinary(req.file.buffer, resourceType);
-
-      mediaUrl = result.secure_url;
-      thumbnail = buildThumbnail(result);
-    }
-
     const updateData = {
       ...req.body,
-      ...(mediaUrl && { mediaUrl }),
-      ...(thumbnail && { thumbnail }),
       updatedAt: Date.now(),
     };
+
+    if (req.file) {
+      const rType = resolveResourceType(req.body.type);
+      const result = await uploadToCloudinary(req.file.buffer, rType);
+
+      mediaUrl = buildMediaUrl(result);
+      thumbnail = buildThumbnail(result);
+
+      updateData.mediaUrl = mediaUrl;
+      updateData.thumbnail = thumbnail;
+      updateData.publicId = result.public_id;
+      updateData.resourceType = result.resource_type;
+    }
 
     // Frontend sends "type", schema field is "mediaType"
     if (req.body.type !== undefined) {
@@ -216,7 +254,7 @@ exports.updateMedia = async (req, res) => {
       });
     }
 
-    res.json(media);
+    res.json(withFreshUrl(media));
   } catch (err) {
     res.status(500).json({
       message: err.message,
@@ -255,7 +293,7 @@ exports.getLatestMedia = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(10);
 
-    res.json(media);
+    res.json(media.map(withFreshUrl));
   } catch (err) {
     res.status(500).json({
       message: err.message,
@@ -273,7 +311,7 @@ exports.getTrendingMedia = async (req, res) => {
       .populate("category", "name")
       .sort({ createdAt: -1 });
 
-    res.json(media);
+    res.json(media.map(withFreshUrl));
   } catch (err) {
     res.status(500).json({
       message: err.message,
@@ -291,7 +329,7 @@ exports.getFeaturedMedia = async (req, res) => {
       .populate("category", "name")
       .sort({ createdAt: -1 });
 
-    res.json(media);
+    res.json(media.map(withFreshUrl));
   } catch (err) {
     res.status(500).json({
       message: err.message,
@@ -309,7 +347,7 @@ exports.getRecommendedMedia = async (req, res) => {
       .populate("category", "name")
       .sort({ createdAt: -1 });
 
-    res.json(media);
+    res.json(media.map(withFreshUrl));
   } catch (err) {
     res.status(500).json({
       message: err.message,
@@ -327,7 +365,7 @@ exports.getMediaByType = async (req, res) => {
       .populate("category", "name")
       .sort({ createdAt: -1 });
 
-    res.json(media);
+    res.json(media.map(withFreshUrl));
   } catch (err) {
     res.status(500).json({
       message: err.message,
