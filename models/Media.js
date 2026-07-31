@@ -36,7 +36,7 @@ const mediaSchema = new mongoose.Schema({
 
   mediaType: {
     type: String,
-    enum: ["photo", "video", "audio","document"],
+    enum: ["photo", "video", "audio", "document"],
     required: true,
   },
 
@@ -58,6 +58,7 @@ const mediaSchema = new mongoose.Schema({
   language: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Language",
+    required: true,
   },
 
   isTrending: {

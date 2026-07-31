@@ -171,7 +171,11 @@ exports.createMedia = async (req, res) => {
       duration: req.body.duration,
       author: req.user.id, // from authMiddleware — decoded JWT payload uses "id"
       category: cleanRef(req.body.category), // avoids "" -> ObjectId cast error
-      language: cleanRef(req.body.language),
+      // language is required on the schema now (matches Church) — fall
+      // back to the request's resolved language the same way Church's
+      // create does, instead of leaving it undefined when the frontend
+      // omits it.
+      language: cleanRef(req.body.language) || req.language,
       isTrending: req.body.isTrending === "true",
       isRecommended: req.body.isRecommended === "true",
       isFeatured: req.body.isFeatured === "true",
@@ -290,10 +294,13 @@ exports.deleteMedia = async (req, res) => {
 };
 
 // GET LATEST MEDIA
+// language-scoped filter, always applied — same pattern as
+// Church's getChurches/getPrimaryChurch
 exports.getLatestMedia = async (req, res) => {
   try {
     const media = await Media.find({
       status: "published",
+      language: req.language,
     })
       .populate("category", "name")
       .sort({ createdAt: -1 })
@@ -313,6 +320,7 @@ exports.getTrendingMedia = async (req, res) => {
     const media = await Media.find({
       status: "published",
       isTrending: true,
+      language: req.language,
     })
       .populate("category", "name")
       .sort({ createdAt: -1 });
@@ -331,6 +339,7 @@ exports.getFeaturedMedia = async (req, res) => {
     const media = await Media.find({
       status: "published",
       isFeatured: true,
+      language: req.language,
     })
       .populate("category", "name")
       .sort({ createdAt: -1 });
@@ -349,6 +358,7 @@ exports.getRecommendedMedia = async (req, res) => {
     const media = await Media.find({
       status: "published",
       isRecommended: true,
+      language: req.language,
     })
       .populate("category", "name")
       .sort({ createdAt: -1 });
@@ -367,6 +377,7 @@ exports.getMediaByType = async (req, res) => {
     const media = await Media.find({
       status: "published",
       mediaType: req.params.type,
+      language: req.language,
     })
       .populate("category", "name")
       .sort({ createdAt: -1 });
