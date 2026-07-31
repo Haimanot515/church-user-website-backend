@@ -15,16 +15,16 @@ const heroUpload = upload.fields([
   { name: "storyImage", maxCount: 1 },
 ]);
 
-// GET: Publicly accessible to view the hero section
+// GET /api/homeheros — Publicly accessible to view the hero section
 router.get("/", getHero);
 
-// POST: Restricted to admin; used to create a hero entry
+// POST /api/homeheros — Restricted to admin; used to create a hero entry
 router.post("/", auth, adminAuth, heroUpload, createHero);
 
-// PUT: Restricted to admin; used to update a specific hero entry by id
+// PUT /api/homeheros/:id — Restricted to admin; used to update a specific hero entry
 router.put("/:id", auth, adminAuth, heroUpload, updateHero);
 
-// DELETE: Restricted to admin; used to remove a specific hero entry by id
+// DELETE /api/homeheros/:id — Restricted to admin; used to remove a specific hero entry
 router.delete("/:id", auth, adminAuth, deleteHero);
 
 module.exports = router;
