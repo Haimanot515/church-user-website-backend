@@ -4,7 +4,12 @@ const categorySchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
-    unique: true,
+  },
+
+  language: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Language",
+    required: true,
   },
 
   description: String,
@@ -20,5 +25,9 @@ const categorySchema = new mongoose.Schema({
     default: Date.now,
   },
 });
+
+// same name allowed across different languages,
+// but not duplicated within the same language
+categorySchema.index({ name: 1, language: 1 }, { unique: true });
 
 module.exports = mongoose.model("Category", categorySchema);

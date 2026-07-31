@@ -32,6 +32,9 @@ const projectHeroRoutes = require("./routes/projectHero");
 // --- Independent Landing Route ---
 const landingRoutes = require("./routes/landingHero");
 
+// --- Language resolution middleware ---
+const resolveLanguage = require("./middleware/resolveLanguage");
+
 const app = express();
 
 // --------------------
@@ -54,6 +57,9 @@ app.use(
 
 app.use(express.json());
 app.use(cookieParser());
+
+// Resolve Accept-Language header -> req.language, before any route reads it
+app.use(resolveLanguage);
 
 // Static folder for local image uploads
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

@@ -1,12 +1,12 @@
 const Category = require("../models/Category");
 
 
-// GET ALL CATEGORIES
+// GET ALL CATEGORIES (public — language-scoped via header)
 exports.getCategories = async (req, res) => {
 
   try {
 
-    const categories = await Category.find()
+    const categories = await Category.find({ language: req.language })
       .sort({ createdAt: -1, _id: -1 });
 
     res.json(categories);
@@ -54,19 +54,28 @@ exports.getCategoryById = async (req, res) => {
 
 
 
-// CREATE CATEGORY
+// CREATE CATEGORY (admin — language comes from request body)
 exports.createCategory = async (req, res) => {
 
   try {
 
+    if (!req.body.language) {
+
+      return res.status(400).json({
+        message: "Language is required"
+      });
+
+    }
+
     const existingCategory = await Category.findOne({
-      name: req.body.name
+      name: req.body.name,
+      language: req.body.language
     });
 
     if (existingCategory) {
 
       return res.status(400).json({
-        message: "Category already exists"
+        message: "Category already exists for this language"
       });
 
     }
@@ -75,7 +84,9 @@ exports.createCategory = async (req, res) => {
 
       name: req.body.name,
 
-      description: req.body.description
+      description: req.body.description,
+
+      language: req.body.language
 
     });
 
@@ -96,16 +107,31 @@ exports.createCategory = async (req, res) => {
 
 
 
-// UPDATE CATEGORY
+// UPDATE CATEGORY (admin)
 exports.updateCategory = async (req, res) => {
 
   try {
 
-    if (req.body.name) {
+    if (req.body.name || req.body.language) {
+
+      const current = await Category.findById(req.params.id);
+
+      if (!current) {
+
+        return res.status(404).json({
+          message: "Category not found"
+        });
+
+      }
+
+      const checkName = req.body.name || current.name;
+      const checkLanguage = req.body.language || current.language;
 
       const existingCategory = await Category.findOne({
 
-        name: req.body.name,
+        name: checkName,
+
+        language: checkLanguage,
 
         _id: { $ne: req.params.id }
 
@@ -114,7 +140,7 @@ exports.updateCategory = async (req, res) => {
       if (existingCategory) {
 
         return res.status(400).json({
-          message: "Category already exists"
+          message: "Category already exists for this language"
         });
 
       }
