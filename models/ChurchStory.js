@@ -11,6 +11,12 @@ const churchStorySchema = new mongoose.Schema(
     servedBy: { type: String },
     photo: { type: String },
     order: { type: Number, default: 0 }, // controls display order in "Our Church Story"
+
+    language: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Language",
+      required: true,
+    },
   },
   { timestamps: true }
 );

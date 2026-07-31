@@ -16,16 +16,21 @@ const uploadToCloudinary = (fileBuffer) => {
 };
 
 // GET /church-story?page=&limit=
-// Publicly accessible — returns chapters sorted oldest-first (by order, then year)
+// Publicly accessible — returns chapters for the current language,
+// sorted oldest-first (by order, then year)
+// @route   GET /api/church-story
 exports.getChurchStories = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
 
-    const query = ChurchStory.find().sort({ order: 1, year: 1 });
-    const total = await ChurchStory.countDocuments();
+    const filter = { language: req.language };
 
-    const stories = await query
+    const total = await ChurchStory.countDocuments(filter);
+
+    const stories = await ChurchStory.find(filter)
+      .populate("language", "name code")
+      .sort({ order: 1, year: 1 })
       .skip((page - 1) * limit)
       .limit(limit);
 
@@ -42,9 +47,13 @@ exports.getChurchStories = async (req, res) => {
 
 // GET /church-story/:id
 // Publicly accessible — a single chapter
+// @route   GET /api/church-story/:id
 exports.getChurchStoryById = async (req, res) => {
   try {
-    const story = await ChurchStory.findById(req.params.id);
+    const story = await ChurchStory.findById(req.params.id).populate(
+      "language",
+      "name code"
+    );
     if (!story) return res.status(404).json({ message: "Chapter not found" });
     res.json(story);
   } catch (err) {
@@ -54,6 +63,7 @@ exports.getChurchStoryById = async (req, res) => {
 
 // POST /church-story
 // Admin only
+// @route   POST /api/church-story
 exports.createChurchStory = async (req, res) => {
   try {
     let photoUrl = "";
@@ -77,6 +87,7 @@ exports.createChurchStory = async (req, res) => {
 
 // PUT /church-story/:id
 // Admin only
+// @route   PUT /api/church-story/:id
 exports.updateChurchStory = async (req, res) => {
   try {
     let photoUrl = "";
@@ -105,6 +116,7 @@ exports.updateChurchStory = async (req, res) => {
 
 // DELETE /church-story/:id
 // Admin only
+// @route   DELETE /api/church-story/:id
 exports.deleteChurchStory = async (req, res) => {
   try {
     const story = await ChurchStory.findByIdAndDelete(req.params.id);
