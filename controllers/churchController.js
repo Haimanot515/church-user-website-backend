@@ -41,12 +41,13 @@ exports.createChurch = async (req, res) => {
 
     const isPrimary = req.body.isPrimary === true || req.body.isPrimary === "true";
 
-    // Only one church across the ENTIRE collection should ever be
-    // "primary" (the one shown as the Hero on the public page).
-    // Unset any existing primary before creating the new one.
+    // Only one church PER LANGUAGE should ever be "primary" (the one
+    // shown as the Hero on that language's public page) — each language
+    // has its own translated Church document, so the uniqueness rule is
+    // scoped to req.body.language rather than the entire collection.
     if (isPrimary) {
       await Church.updateMany(
-        { isPrimary: true },
+        { language: req.body.language, isPrimary: true },
         { isPrimary: false }
       );
     }
@@ -74,6 +75,8 @@ exports.createChurch = async (req, res) => {
 
       serviceTime: req.body.serviceTime,
 
+      language: req.body.language,
+
       isFeatured: req.body.isFeatured,
 
       isPrimary
@@ -97,11 +100,16 @@ exports.createChurch = async (req, res) => {
 
 
 // GET ALL CHURCHES
+// language-scoped filter, always applied — same pattern as Post's
+// getPosts/getLatestPosts
 exports.getChurches = async(req,res)=>{
 
   try{
 
-    const churches = await Church.find()
+    const churches = await Church.find({
+      language: req.language
+    })
+      .populate("language", "name code")
       .sort({
         createdAt:-1
       });
@@ -130,7 +138,8 @@ exports.getChurchById = async(req,res)=>{
 
     const church = await Church.findById(
       req.params.id
-    );
+    )
+      .populate("language", "name code");
 
 
     if(!church)
@@ -156,12 +165,16 @@ exports.getChurchById = async(req,res)=>{
 
 
 // GET THE PRIMARY CHURCH (public, powers the Hero section)
+// Scoped to the requester's language, same as getPrimaryPost-style
+// endpoints — each language has its own primary church.
 exports.getPrimaryChurch = async (req, res) => {
   try {
 
     const church = await Church.findOne({
       isPrimary: true,
-    });
+      language: req.language,
+    })
+      .populate("language", "name code");
 
     if (!church)
       return res.status(404).json({
@@ -200,12 +213,18 @@ exports.updateChurch = async(req,res)=>{
 
     const isPrimary = req.body.isPrimary === true || req.body.isPrimary === "true";
 
-    // Same uniqueness rule on update: if this church is being marked
-    // primary, unset whichever church currently holds that flag first
-    // (excluding this church itself).
+    // Same per-language uniqueness rule on update: if this church is
+    // being marked primary, unset whichever church currently holds that
+    // flag for the same language first (excluding this church itself).
+    // Falls back to this church's own current language if none was sent
+    // in the body, so switching primary status without also resending
+    // the language field doesn't accidentally scope across all of them.
     if (isPrimary) {
+      const existing = await Church.findById(req.params.id);
+      const languageId = req.body.language || existing?.language;
+
       await Church.updateMany(
-        { _id: { $ne: req.params.id }, isPrimary: true },
+        { _id: { $ne: req.params.id }, language: languageId, isPrimary: true },
         { isPrimary: false }
       );
     }
@@ -233,7 +252,8 @@ exports.updateChurch = async(req,res)=>{
           new:true
         }
 
-      );
+      )
+        .populate("language", "name code");
 
 
     res.json(church);

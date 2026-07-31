@@ -27,19 +27,51 @@ const uploadToCloudinary = (fileBuffer) => {
 };
 
 
-// GET ALL SERVICES
+// GET ALL SERVICES (Newest first, paginated)
+// Query params: ?page=1&limit=10
+// Mirrors Post's getPosts: language-scoped filter always applied, plus
+// status "active" so the public page never has to filter client-side.
 exports.getServices = async (req, res) => {
 
   try {
 
-    const services = await Service.find()
-      .sort({
-        createdAt: -1,
-        _id: -1
-      });
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
 
+    // language-scoped filter, always applied
+    const filter = {
+      status: "active",
+      language: req.language
+    };
 
-    res.json(services);
+    if (req.query.category) {
+      filter.category = req.query.category;
+    }
+
+    const [services, totalServices] = await Promise.all([
+
+      Service.find(filter)
+        .populate("language", "name code")
+        .sort({ createdAt: -1, _id: -1 })
+        .skip(skip)
+        .limit(limit),
+
+      Service.countDocuments(filter)
+
+    ]);
+
+    res.json({
+
+      services,
+
+      currentPage: page,
+
+      totalPages: Math.ceil(totalServices / limit),
+
+      totalServices
+
+    });
 
 
   } catch (err) {
@@ -58,7 +90,8 @@ exports.getServiceById = async (req, res) => {
 
   try {
 
-    const service = await Service.findById(req.params.id);
+    const service = await Service.findById(req.params.id)
+      .populate("language", "name code");
 
 
     if (!service) {
@@ -116,6 +149,8 @@ exports.createService = async (req, res) => {
       time: req.body.time,
 
       category: req.body.category,
+
+      language: req.body.language,
 
       location: req.body.location,
 
@@ -273,9 +308,12 @@ exports.getFeaturedServices = async (req, res) => {
 
       isFeatured: true,
 
-      status: "active"
+      status: "active",
+
+      language: req.language
 
     })
+      .populate("language", "name code")
       .sort({
 
         createdAt: -1
@@ -311,9 +349,12 @@ exports.getActiveServices = async (req, res) => {
 
     const services = await Service.find({
 
-      status: "active"
+      status: "active",
+
+      language: req.language
 
     })
+      .populate("language", "name code")
       .sort({
 
         createdAt: -1

@@ -42,6 +42,12 @@ const serviceSchema = new mongoose.Schema({
     default: "Other",
   },
 
+  language: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Language",
+    required: true,
+  },
+
   location: {
     type: String,
     default: "",

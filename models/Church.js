@@ -43,6 +43,12 @@ const churchSchema = new mongoose.Schema(
       default: "",
     },
 
+    language: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Language",
+      required: true,
+    },
+
     isFeatured: {
       type: Boolean,
       default: false,
