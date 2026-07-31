@@ -15,19 +15,21 @@ const uploadToCloudinary = (fileBuffer) => {
   });
 };
 
-// GET: Fetch ALL About entries in STRICT DESCENDING order (Newest First)
+// @desc    Get About entries for the current language (Newest First)
+// @route   GET /api/about
 exports.getAbout = async (req, res) => {
   try {
-    // We sort by createdAt: -1 for the timestamp
-    // We also sort by _id: -1 as a fallback to ensure the newest IDs always appear first
-    const about = await About.find().sort({ createdAt: -1, _id: -1 }); 
+    const about = await About.find({ language: req.language })
+      .populate("language", "name code")
+      .sort({ createdAt: -1, _id: -1 });
     res.json(about);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-// POST: Create a new About entry
+// @desc    Create a new About entry
+// @route   POST /api/about
 exports.createAbout = async (req, res) => {
   try {
     let imageUrl = "";
@@ -41,6 +43,7 @@ exports.createAbout = async (req, res) => {
       title: req.body.title,
       churchLeader: req.body.churchLeader,
       description: req.body.description,
+      language: req.body.language,
       image: imageUrl,
     });
 
@@ -52,24 +55,30 @@ exports.createAbout = async (req, res) => {
   }
 };
 
-// PUT: Update a specific About entry by ID
+// @desc    Update a specific About entry by ID
+// @route   PUT /api/about/:id
 exports.updateAbout = async (req, res) => {
   try {
-    let imageUrl = "";
+    const updateData = {};
+
+    // Map body fields — only set fields that were actually provided
+    const fields = ["title", "churchLeader", "description", "language"];
+    fields.forEach((field) => {
+      if (req.body[field] !== undefined && req.body[field] !== "null") {
+        updateData[field] = req.body[field];
+      }
+    });
 
     if (req.file) {
       const result = await uploadToCloudinary(req.file.buffer);
-      imageUrl = result.secure_url;
+      updateData.image = result.secure_url;
     }
 
     // This updates a specific entry using its ID (e.g., 6982ff326b288509e3790cfc)
     const about = await About.findByIdAndUpdate(
-      req.params.id, 
-      { 
-        ...req.body, 
-        ...(imageUrl && { image: imageUrl }) 
-      },
-      { new: true } 
+      req.params.id,
+      { $set: updateData },
+      { new: true, runValidators: true }
     );
 
     if (!about) {
@@ -83,7 +92,8 @@ exports.updateAbout = async (req, res) => {
   }
 };
 
-// DELETE: (Optional but recommended) Delete an entry by ID
+// @desc    Delete a specific About entry by ID
+// @route   DELETE /api/about/:id
 exports.deleteAbout = async (req, res) => {
   try {
     const about = await About.findByIdAndDelete(req.params.id);
