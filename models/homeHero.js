@@ -11,6 +11,12 @@ const heroSchema = new mongoose.Schema(
     quote: String,
     story: String, // The detailed "My Story" text
     storyImage: String, // The image specifically for the About/Story section
+
+    language: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Language",
+      required: true,
+    },
   },
   {
     timestamps: true,

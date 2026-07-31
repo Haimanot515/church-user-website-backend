@@ -23,21 +23,23 @@ const uploadMultipleToCloudinary = async (files) => {
   return uploads.map((result) => result.secure_url);
 };
 
-// GET: Fetch ALL Church Persons
+// GET: Fetch ALL Church Persons for the current language
 // Optionally filter by category via ?category=leader | specialThanks | testimony
 // Sorted by church rank (rankOrder) first, then newest first.
 exports.getChurchPersons = async (req, res) => {
   try {
-    const filter = {};
+    const filter = { language: req.language };
     if (req.query.category) {
       filter.category = req.query.category;
     }
 
-    const churchPersons = await ChurchPerson.find(filter).sort({
-      rankOrder: 1,
-      createdAt: -1,
-      _id: -1,
-    });
+    const churchPersons = await ChurchPerson.find(filter)
+      .populate("language", "name code")
+      .sort({
+        rankOrder: 1,
+        createdAt: -1,
+        _id: -1,
+      });
     res.json(churchPersons);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -47,7 +49,8 @@ exports.getChurchPersons = async (req, res) => {
 // GET: Fetch a single Church Person by ID
 exports.getChurchPersonById = async (req, res) => {
   try {
-    const churchPerson = await ChurchPerson.findById(req.params.id);
+    const churchPerson = await ChurchPerson.findById(req.params.id)
+      .populate("language", "name code");
     if (!churchPerson) {
       return res.status(404).json({ message: "Church person not found" });
     }
@@ -75,6 +78,7 @@ exports.createChurchPerson = async (req, res) => {
       category: req.body.category,
       rank: req.body.rank,
       rankOrder: req.body.rankOrder !== undefined ? Number(req.body.rankOrder) : 0,
+      language: req.body.language,
       photos: photoUrls,
     });
 
@@ -116,6 +120,7 @@ exports.updateChurchPerson = async (req, res) => {
       category,
       rank,
       rankOrder,
+      language,
     } = req.body;
 
     const updatedChurchPerson = await ChurchPerson.findByIdAndUpdate(
@@ -129,6 +134,7 @@ exports.updateChurchPerson = async (req, res) => {
         ...(category !== undefined && { category }),
         ...(rank !== undefined && { rank }),
         ...(rankOrder !== undefined && { rankOrder: Number(rankOrder) }),
+        ...(language !== undefined && { language }),
         photos: photoUrls,
       },
       { new: true }

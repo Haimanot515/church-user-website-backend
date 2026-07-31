@@ -15,11 +15,13 @@ const uploadToCloudinary = (fileBuffer) => {
   });
 };
 
-// @desc    Get ALL Home Hero entries (Newest First)
+// @desc    Get Home Hero entries for the current language (Newest First)
 // @route   GET /api/home-hero
 exports.getHero = async (req, res) => {
   try {
-    const heroes = await HomeHero.find().sort({ createdAt: -1 });
+    const heroes = await HomeHero.find({ language: req.language })
+      .populate("language", "name code")
+      .sort({ createdAt: -1 });
     res.json(heroes);
   } catch (err) {
     console.error(err);
@@ -31,7 +33,7 @@ exports.getHero = async (req, res) => {
 // @route   POST /api/home-hero
 exports.createHero = async (req, res) => {
   try {
-    const { title, subtitle, description, name, role, quote, story } = req.body;
+    const { title, subtitle, description, name, role, quote, story, language } = req.body;
 
     let imageUrl = "";
     let storyImageUrl = "";
@@ -54,6 +56,7 @@ exports.createHero = async (req, res) => {
       role,
       quote,
       story,
+      language,
       image: imageUrl,
       storyImage: storyImageUrl,
     });
@@ -72,7 +75,7 @@ exports.updateHero = async (req, res) => {
     const updateData = {};
 
     // Map body fields — only set fields that were actually provided
-    const fields = ["title", "subtitle", "description", "name", "role", "quote", "story"];
+    const fields = ["title", "subtitle", "description", "name", "role", "quote", "story", "language"];
     fields.forEach((field) => {
       if (req.body[field] !== undefined && req.body[field] !== "null") {
         updateData[field] = req.body[field];

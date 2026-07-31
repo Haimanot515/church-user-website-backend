@@ -18,7 +18,8 @@ const uploadToCloudinary = (fileBuffer) => {
 
 exports.getLatestPromotion = async (req, res) => {
   try {
-    const promotion = await Promotion.findOne()
+    const promotion = await Promotion.findOne({ language: req.language })
+      .populate("language", "name code")
       .sort({ createdAt: -1, _id: -1 });
 
     if (!promotion) {
@@ -35,10 +36,12 @@ exports.getLatestPromotion = async (req, res) => {
     });
   }
 };
-// GET: Fetch ALL Promotions (Newest First)
+
+// GET: Fetch ALL Promotions for the current language (Newest First)
 exports.getPromotion = async (req, res) => {
   try {
-    const promotions = await Promotion.find()
+    const promotions = await Promotion.find({ language: req.language })
+      .populate("language", "name code")
       .sort({ createdAt: -1, _id: -1 });
 
     res.json(promotions);
@@ -63,6 +66,7 @@ exports.createPromotion = async (req, res) => {
     const newPromotion = new Promotion({
       title: req.body.title,
       description: req.body.description,
+      language: req.body.language,
       photo: photoUrl,
     });
 

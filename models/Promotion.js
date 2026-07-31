@@ -17,6 +17,12 @@ const promotionSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+
+    language: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Language",
+      required: true,
+    },
   },
   {
     timestamps: true,
