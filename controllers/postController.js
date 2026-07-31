@@ -31,16 +31,25 @@ exports.getPosts = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    // === ADDED: resolve category name -> id, and build the filter ===
-    const filter = {};
+    // language-scoped filter, always applied
+    const filter = {
+      status: "published",
+      language: req.language
+    };
 
     if (req.query.category) {
-      const categoryDoc = await Category.findOne({ name: req.query.category });
+
+      // category name lookup is scoped to the same language, so
+      // "News" in English and "ዜና" in Amharic never collide
+      const categoryDoc = await Category.findOne({
+        name: req.query.category,
+        language: req.language
+      });
 
       if (categoryDoc) {
         filter.category = categoryDoc._id;
       } else {
-        // No matching category — return an empty result instead of all posts
+        // No matching category in this language — empty result, not all posts
         return res.json({
           posts: [],
           currentPage: page,
@@ -331,7 +340,8 @@ exports.getLatestPosts = async(req,res)=>{
  try{
 
   const posts = await Post.find({
-    status:"published"
+    status:"published",
+    language: req.language
   })
   .sort({
     createdAt:-1
@@ -364,7 +374,9 @@ exports.getTrendingPosts = async(req,res)=>{
 
     status:"published",
 
-    isTrending:true
+    isTrending:true,
+
+    language: req.language
 
   })
   .sort({
@@ -399,7 +411,9 @@ exports.getRecommendedPosts = async(req,res)=>{
 
     status:"published",
 
-    isRecommended:true
+    isRecommended:true,
+
+    language: req.language
 
   })
   .sort({
@@ -437,7 +451,9 @@ exports.getFeaturedPosts = async(req,res)=>{
 
     status:"published",
 
-    isFeatured:true
+    isFeatured:true,
+
+    language: req.language
 
   })
   .sort({
