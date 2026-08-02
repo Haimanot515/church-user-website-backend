@@ -23,7 +23,7 @@ const uploadToCloudinary = (fileBuffer) => {
 
 
 // GET ALL POSTS (Newest first, paginated)
-// Query params: ?page=1&limit=10&category=<name>
+// Query params: ?page=1&limit=10&categorySlug=<slug>
 exports.getPosts = async (req, res) => {
   try {
 
@@ -37,12 +37,13 @@ exports.getPosts = async (req, res) => {
       language: req.language
     };
 
-    if (req.query.category) {
+    if (req.query.categorySlug) {
 
-      // category name lookup is scoped to the same language, so
-      // "News" in English and "ዜና" in Amharic never collide
+      // slug is language-independent, so "travel" resolves to
+      // Travel (EN) / Viaggi (IT) / ጉዞ (AM) depending on req.language,
+      // without ever matching on translated display names
       const categoryDoc = await Category.findOne({
-        name: req.query.category,
+        slug: req.query.categorySlug.toLowerCase(),
         language: req.language
       });
 
@@ -63,7 +64,7 @@ exports.getPosts = async (req, res) => {
 
       Post.find(filter)
         .populate("author", "name")
-        .populate("category", "name")
+        .populate("category", "name slug")
         .populate("language", "name code")
         .sort({ createdAt: -1, _id: -1 })
         .skip(skip)
