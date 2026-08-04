@@ -8,19 +8,63 @@ const jwt = require("jsonwebtoken");
 const { sendEmail } = require("../config/nodemailer");
 
 /* ===========================
+    VALIDATION HELPERS
+=========================== */
+
+// Simple, widely-used email shape check — not a full RFC 5322 validator,
+// but enough to catch obviously malformed input (missing @, no domain, etc).
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Password rule: at least 8 characters, at least 1 uppercase letter,
+// at least 1 lowercase letter, and at least 1 special character.
+const PASSWORD_MIN_LENGTH = 8;
+const hasUppercase = (value) => /[A-Z]/.test(value);
+const hasLowercase = (value) => /[a-z]/.test(value);
+const hasSpecialChar = (value) => /[^A-Za-z0-9]/.test(value);
+
+const validateRegistrationInput = ({ name, email, password }) => {
+  if (!name || !email || !password) {
+    return "All fields are required.";
+  }
+
+  if (typeof name !== "string" || name.trim().length < 2) {
+    return "Name must be at least 2 characters.";
+  }
+
+  if (typeof email !== "string" || !EMAIL_REGEX.test(email.trim())) {
+    return "Please enter a valid email address.";
+  }
+
+  if (typeof password !== "string" || password.length < PASSWORD_MIN_LENGTH) {
+    return `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`;
+  }
+
+  if (!hasUppercase(password)) {
+    return "Password must contain at least one uppercase letter.";
+  }
+
+  if (!hasLowercase(password)) {
+    return "Password must contain at least one lowercase letter.";
+  }
+
+  if (!hasSpecialChar(password)) {
+    return "Password must contain at least one special character.";
+  }
+
+  return null; // no errors
+};
+
+/* ===========================
     REGISTER (SEND CODE)
 =========================== */
 exports.register = async (req, res) => {
   const { name, email, password } = req.body;
 
   try {
-    // 1. Validation
-    if (!name || !email || !password) {
-      return res.status(400).json({ msg: "All fields are required." });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({ msg: "Password must be at least 6 characters." });
+    // 1. Validation — name, email format, and password strength
+    const validationError = validateRegistrationInput({ name, email, password });
+    if (validationError) {
+      return res.status(400).json({ msg: validationError });
     }
 
     // 2. Check if user already exists
@@ -232,6 +276,14 @@ exports.verify = async (req, res) => {
 
     if (!code || !email || !name || !password) {
       return res.status(400).json({ msg: "All fields are required." });
+    }
+
+    // Re-run the same validation used at register time — protects
+    // against someone bypassing /register and calling /verify directly
+    // with a weak password or malformed email.
+    const validationError = validateRegistrationInput({ name, email, password });
+    if (validationError) {
+      return res.status(400).json({ msg: validationError });
     }
 
     const record = await VerificationCode.findOne({
