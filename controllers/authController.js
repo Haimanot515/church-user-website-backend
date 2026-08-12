@@ -384,3 +384,23 @@ exports.login = async (req, res) => {
     res.status(500).json({ msg: "Server error during login." });
   }
 };
+
+/* ===========================
+    LOGOUT
+=========================== */
+// Stateless JWT setup — there's no server-side session to destroy here, so
+// this endpoint doesn't invalidate anything by itself. It exists so the
+// frontend has a real authenticated request to fire on logout (rather than
+// silently deleting localStorage with no server round-trip), and so you have
+// a single place to plug in a token blacklist/denylist later if you ever
+// need to force-expire a token before its 7d lifetime is up.
+exports.logout = async (req, res) => {
+  try {
+    // req.user is populated by authMiddleware — reaching this line means
+    // the request came in with a currently-valid token.
+    res.json({ msg: "Logged out successfully." });
+  } catch (err) {
+    console.error("Logout Error:", err);
+    res.status(500).json({ msg: "Server error during logout." });
+  }
+};
