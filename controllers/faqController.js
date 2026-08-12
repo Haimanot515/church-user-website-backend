@@ -1,10 +1,16 @@
 const Faq = require("../models/FAQ");
 
 // @desc    Get FAQ entries for the current language (Newest First)
+//          Optionally filtered by category via ?category=Contact (or Faith / Information)
 // @route   GET /api/faq
 exports.getFaq = async (req, res) => {
   try {
-    const faq = await Faq.find({ language: req.language })
+    const filter = { language: req.language };
+    if (req.query.category) {
+      filter.category = req.query.category;
+    }
+
+    const faq = await Faq.find(filter)
       .populate("language", "name code")
       .sort({ category: 1, order: 1, createdAt: -1, _id: -1 });
     res.json(faq);
