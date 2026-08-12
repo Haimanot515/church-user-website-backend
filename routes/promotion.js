@@ -7,6 +7,7 @@ const upload = require("../middleware/uploadMiddleware");
 const {
   getLatestPromotion,
   getPromotion,
+  getPromotionById,
   createPromotion,
   updatePromotion,
   deletePromotion
@@ -17,9 +18,14 @@ const {
 router.get("/", getPromotion);
 
 
-// PUBLIC: get only the most recent promotion — put this ABOVE any "/:id"
-// route you add later, or "latest" will get swallowed as an :id value
+// PUBLIC: get only the most recent promotion — must stay ABOVE "/:id"
+// or "latest" will get swallowed as an :id value
 router.get("/latest", getLatestPromotion);
+
+
+// PUBLIC/ADMIN: get a single promotion by ID — used by the admin edit page
+// to pre-fill the form. Must also stay ABOVE nothing else, but BELOW "/latest"
+router.get("/:id", getPromotionById);
 
 
 // POST: Admin only - create promotion

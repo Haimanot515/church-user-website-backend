@@ -52,6 +52,26 @@ exports.getPromotion = async (req, res) => {
 };
 
 
+// GET: Fetch a single Promotion by ID (used by the admin edit page)
+exports.getPromotionById = async (req, res) => {
+  try {
+    const promotion = await Promotion.findById(req.params.id)
+      .populate("language", "name code");
+
+    if (!promotion) {
+      return res.status(404).json({
+        message: "Promotion not found"
+      });
+    }
+
+    res.json(promotion);
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+
 // POST: Create a new Promotion
 exports.createPromotion = async (req, res) => {
   try {
