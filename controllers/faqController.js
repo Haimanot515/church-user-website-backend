@@ -13,6 +13,17 @@ exports.getFaq = async (req, res) => {
   }
 };
 
+// @desc    Get the list of valid FAQ categories (from schema enum)
+// @route   GET /api/faq/categories
+exports.getFaqCategories = async (req, res) => {
+  try {
+    const categories = Faq.schema.path("category").enumValues;
+    res.json(categories);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 // @desc    Create a new FAQ entry
 // @route   POST /api/faq
 exports.createFaq = async (req, res) => {
