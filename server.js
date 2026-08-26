@@ -21,6 +21,8 @@ const subscriberRoutes = require("./routes/subscriber");
 const churchRoutes = require("./routes/church");
 const churchStoryRoutes = require("./routes/churchStory");
 const missionVisionRoutes = require("./routes/mission-vision");
+const bankAccountRoutes = require("./routes/bankAccount");
+
 const faqRoutes = require("./routes/faq");
 
 
@@ -116,6 +118,8 @@ const startServer = async () => {
     app.use("/api/churches", churchRoutes);
     app.use("/api/church-story", churchStoryRoutes);
     app.use("/api/mission-vision", missionVisionRoutes);
+    app.use("/api/bank-accounts", bankAccountRoutes);
+
     app.use("/api/faq", faqRoutes);
 
 
