@@ -15,6 +15,13 @@ const uploadToCloudinary = (fileBuffer) => {
   });
 };
 
+// Strips fields the system computes itself so a client can never override
+// year/order by sending them directly.
+const sanitizeStoryBody = (body) => {
+  const { order, year, ...safeBody } = body;
+  return safeBody;
+};
+
 // GET /church-story?page=&limit=
 // Publicly accessible — returns chapters for the current language,
 // sorted oldest-first (by order, then year)
@@ -73,14 +80,22 @@ exports.createChurchStory = async (req, res) => {
       photoUrl = result.secure_url;
     }
 
+    // year and order are never taken from the client — the schema's
+    // pre("validate") hook derives both from `range`.
     const story = await ChurchStory.create({
-      ...req.body,
+      ...sanitizeStoryBody(req.body),
       ...(photoUrl && { photo: photoUrl }),
     });
 
     res.status(201).json(story);
   } catch (err) {
     console.error(err);
+
+    if (err.name === "ValidationError") {
+      const firstError = Object.values(err.errors)[0].message;
+      return res.status(400).json({ message: firstError });
+    }
+
     res.status(400).json({ message: err.message });
   }
 };
@@ -90,6 +105,10 @@ exports.createChurchStory = async (req, res) => {
 // @route   PUT /api/church-story/:id
 exports.updateChurchStory = async (req, res) => {
   try {
+    const story = await ChurchStory.findById(req.params.id);
+
+    if (!story) return res.status(404).json({ message: "Chapter not found" });
+
     let photoUrl = "";
 
     if (req.file) {
@@ -97,19 +116,25 @@ exports.updateChurchStory = async (req, res) => {
       photoUrl = result.secure_url;
     }
 
-    const story = await ChurchStory.findByIdAndUpdate(
-      req.params.id,
-      {
-        ...req.body,
-        ...(photoUrl && { photo: photoUrl }),
-      },
-      { new: true, runValidators: true }
-    );
+    // Assign only the safe fields, then save() — this re-runs the
+    // pre("validate") hook so year/order stay in sync with range.
+    Object.assign(story, sanitizeStoryBody(req.body));
 
-    if (!story) return res.status(404).json({ message: "Chapter not found" });
+    if (photoUrl) {
+      story.photo = photoUrl;
+    }
+
+    await story.save();
+
     res.json(story);
   } catch (err) {
     console.error(err);
+
+    if (err.name === "ValidationError") {
+      const firstError = Object.values(err.errors)[0].message;
+      return res.status(400).json({ message: firstError });
+    }
+
     res.status(400).json({ message: err.message });
   }
 };
