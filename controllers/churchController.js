@@ -57,8 +57,6 @@ exports.createChurch = async (req, res) => {
 
       churchName: req.body.churchName,
 
-      shortDescription: req.body.shortDescription,
-
       description: req.body.description,
 
       history: req.body.history,
@@ -66,10 +64,6 @@ exports.createChurch = async (req, res) => {
       image,
 
       address: req.body.address,
-
-      phone: req.body.phone,
-
-      email: req.body.email,
 
       serviceDays: req.body.serviceDays,
 
@@ -229,31 +223,51 @@ exports.updateChurch = async(req,res)=>{
       );
     }
 
+    // Only pull known schema fields off req.body — spreading the whole
+    // body would let stray/unrelated keys ride along on the update.
+    const {
+      churchName,
+      description,
+      history,
+      address,
+      serviceDays,
+      serviceTime,
+      language,
+    } = req.body;
+
+    const updateData = {
+      ...(churchName !== undefined && { churchName }),
+      ...(description !== undefined && { description }),
+      ...(history !== undefined && { history }),
+      ...(address !== undefined && { address }),
+      ...(serviceDays !== undefined && { serviceDays }),
+      ...(serviceTime !== undefined && { serviceTime }),
+      ...(language !== undefined && { language }),
+      ...(req.body.isFeatured !== undefined && { isFeatured: req.body.isFeatured }),
+      ...(req.body.isPrimary !== undefined && { isPrimary }),
+      ...(image && { image }),
+    };
 
     const church =
       await Church.findByIdAndUpdate(
 
         req.params.id,
 
-        {
-          ...req.body,
-
-          ...(image && {
-            image
-          }),
-
-          ...(req.body.isPrimary !== undefined && {
-            isPrimary
-          })
-
-        },
+        updateData,
 
         {
-          new:true
+          new:true,
+          runValidators:true,
         }
 
       )
         .populate("language", "name code");
+
+
+    if(!church)
+      return res.status(404).json({
+        message:"Church not found"
+      });
 
 
     res.json(church);
@@ -277,9 +291,14 @@ exports.deleteChurch = async(req,res)=>{
 
   try{
 
-    await Church.findByIdAndDelete(
+    const church = await Church.findByIdAndDelete(
       req.params.id
     );
+
+    if(!church)
+      return res.status(404).json({
+        message:"Church not found"
+      });
 
 
     res.json({
@@ -527,9 +546,14 @@ exports.deleteAssignment = async(req,res)=>{
 
   try{
 
-    await ChurchAssignment.findByIdAndDelete(
+    const assignment = await ChurchAssignment.findByIdAndDelete(
       req.params.id
     );
+
+    if(!assignment)
+      return res.status(404).json({
+        message:"Assignment not found"
+      });
 
 
     res.json({

@@ -8,14 +8,9 @@ const churchSchema = new mongoose.Schema(
       trim: true,
     },
 
-    shortDescription: {
-      type: String,
-      default: "",
-    },
-
     description: {
       type: String,
-      default: "",
+      required: true,
     },
 
     history: {
