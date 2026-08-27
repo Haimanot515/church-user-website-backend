@@ -30,9 +30,10 @@ const churchStorySchema = new mongoose.Schema(
 );
 
 // Extract the starting year from `range` (e.g. "1998 - 2006" -> "1998")
-// and use it to fill `year` and compute `order`. The range validator above
-// already guarantees a 4-digit year exists by the time this runs.
-churchStorySchema.pre("validate", function (next) {
+// and use it to fill `year` and compute `order`. Synchronous hook — no
+// `next` parameter, since Mongoose 7+ no longer supports callback-style
+// middleware. Just returning (or not) is enough to signal completion.
+churchStorySchema.pre("validate", function () {
   if (this.range) {
     const match = this.range.match(/\d{4}/);
 
@@ -41,8 +42,6 @@ churchStorySchema.pre("validate", function (next) {
       this.order = parseInt(match[0], 10);
     }
   }
-
-  next();
 });
 
 module.exports = mongoose.model("ChurchStory", churchStorySchema);
