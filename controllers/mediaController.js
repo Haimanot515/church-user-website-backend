@@ -1,15 +1,12 @@
-const Media = require("../models/Media");
+const mediaService = require("../services/mediaService");
 const cloudinary = require("../config/cloudinary");
 
-// Upload media to Cloudinary
 const uploadToCloudinary = (fileBuffer, resourceType = "auto") => {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
         folder: "media",
         resource_type: resourceType,
-        // Preserve original filename/extension on raw uploads so
-        // public_id reliably ends in .pdf (helps buildThumbnail below)
         use_filename: resourceType === "raw",
         unique_filename: resourceType !== "raw",
       },
@@ -18,22 +15,15 @@ const uploadToCloudinary = (fileBuffer, resourceType = "auto") => {
         resolve(result);
       }
     );
-
     stream.end(fileBuffer);
   });
 };
 
-// Helper: build thumbnail URL depending on what got uploaded
 const buildThumbnail = (result) => {
   if (!result) return "";
-
-  // Video -> Cloudinary can grab a frame as .jpg
   if (result.resource_type === "video") {
     return result.secure_url.replace(/\.\w+$/, ".jpg");
   }
-
-  // Old-style PDFs: uploaded as resource_type "image", format "pdf"
-  // (this is how PDFs landed before we switched documents to "raw")
   if (result.resource_type === "image" && result.format === "pdf") {
     return cloudinary.url(result.public_id, {
       resource_type: "image",
@@ -43,12 +33,9 @@ const buildThumbnail = (result) => {
       version: result.version,
     });
   }
-
-  // New-style PDFs: uploaded explicitly as resource_type "raw"
   const isRawPdf =
     result.resource_type === "raw" &&
     (result.format === "pdf" || /\.pdf$/i.test(result.public_id));
-
   if (isRawPdf) {
     return cloudinary.url(result.public_id, {
       resource_type: "image",
@@ -58,15 +45,9 @@ const buildThumbnail = (result) => {
       version: result.version,
     });
   }
-
   return "";
 };
 
-// Helper: build the correct delivery URL for a fresh upload result.
-// For raw documents: only add format:"pdf" if public_id doesn't
-// already carry an extension (adding it on top of an existing .pdf
-// would produce media/file.pdf.pdf, a broken path). force_version
-// disabled so we don't get a fake "v1" segment that 404s.
 const buildMediaUrl = (result) => {
   if (result.resource_type === "raw") {
     const alreadyHasExt = /\.\w+$/.test(result.public_id);
@@ -79,21 +60,14 @@ const buildMediaUrl = (result) => {
   return result.secure_url;
 };
 
-// Helper: strip empty-string refs so Mongoose doesn't choke on ObjectId cast
 const cleanRef = (value) => (value === "" || value === undefined ? undefined : value);
 
-// Helper: decide Cloudinary resource_type from the frontend's "type" field.
-// Documents go up as "raw" so they aren't subject to the image-pipeline
-// PDF/ZIP delivery restriction; everything else keeps auto-detection.
 const resolveResourceType = (mediaType) => (mediaType === "document" ? "raw" : "auto");
 
-// Helper: recompute mediaUrl at read-time for raw (document) records,
-// so any past extension/Content-Type/version issue self-heals without
-// needing to trust whatever string was saved at upload time. Requires
-// publicId to have been backfilled/saved — records without it keep
-// their stored mediaUrl as-is.
+// Helper: recompute mediaUrl at read-time for raw (document) records.
+// Prisma results are plain objects already, so no .toObject() needed.
 const withFreshUrl = (mediaDoc) => {
-  const doc = mediaDoc.toObject ? mediaDoc.toObject() : mediaDoc;
+  const doc = { ...mediaDoc };
   if (doc.resourceType === "raw" && doc.publicId) {
     const alreadyHasExt = /\.\w+$/.test(doc.publicId);
     doc.mediaUrl = cloudinary.url(doc.publicId, {
@@ -108,12 +82,7 @@ const withFreshUrl = (mediaDoc) => {
 // GET ALL MEDIA
 exports.getMedia = async (req, res) => {
   try {
-    const media = await Media.find()
-      .populate("author", "name")
-      .populate("category", "name")
-      .populate("language", "name code")
-      .sort({ createdAt: -1, _id: -1 });
-
+    const media = await mediaService.getMedia();
     res.json(media.map(withFreshUrl));
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -123,22 +92,13 @@ exports.getMedia = async (req, res) => {
 // GET SINGLE MEDIA
 exports.getMediaById = async (req, res) => {
   try {
-    const media = await Media.findById(req.params.id)
-      .populate("author", "name")
-      .populate("category", "name")
-      .populate("language", "name code");
-
+    const media = await mediaService.getMediaById(req.params.id);
     if (!media) {
-      return res.status(404).json({
-        message: "Media not found",
-      });
+      return res.status(404).json({ message: "Media not found" });
     }
-
     res.json(withFreshUrl(media));
   } catch (err) {
-    res.status(500).json({
-      message: err.message,
-    });
+    res.status(500).json({ message: err.message });
   }
 };
 
@@ -153,239 +113,140 @@ exports.createMedia = async (req, res) => {
     if (req.file) {
       const rType = resolveResourceType(req.body.type);
       const result = await uploadToCloudinary(req.file.buffer, rType);
-
       mediaUrl = buildMediaUrl(result);
       thumbnail = buildThumbnail(result);
       publicId = result.public_id;
       resourceType = result.resource_type;
     }
 
-    const media = new Media({
+    const savedMedia = await mediaService.createMedia({
       title: req.body.title,
       description: req.body.description,
-      mediaType: req.body.type, // frontend sends "type", schema field is "mediaType"
+      mediaType: req.body.type,
       mediaUrl,
       publicId,
       resourceType,
       thumbnail,
       duration: req.body.duration,
-      author: req.user.id, // from authMiddleware — decoded JWT payload uses "id"
-      category: cleanRef(req.body.category), // avoids "" -> ObjectId cast error
-      // language is required on the schema now (matches Church) — fall
-      // back to the request's resolved language the same way Church's
-      // create does, instead of leaving it undefined when the frontend
-      // omits it.
+      author: req.user.id,
+      category: cleanRef(req.body.category),
       language: cleanRef(req.body.language) || req.language,
       isTrending: req.body.isTrending === "true",
       isRecommended: req.body.isRecommended === "true",
       isFeatured: req.body.isFeatured === "true",
       status: req.body.status || "draft",
-      publishedAt:
-        req.body.status === "published"
-          ? Date.now()
-          : null,
+      publishedAt: req.body.status === "published" ? new Date() : null,
     });
-
-    const savedMedia = await media.save();
-
     res.status(201).json(savedMedia);
   } catch (err) {
     console.error(err);
-
-    res.status(500).json({
-      message: "Failed to create media",
-      error: err.message,
-    });
+    res.status(500).json({ message: "Failed to create media", error: err.message });
   }
 };
 
 // UPDATE MEDIA
 exports.updateMedia = async (req, res) => {
   try {
-    let mediaUrl = "";
-    let thumbnail = "";
-
-    const updateData = {
-      ...req.body,
-      updatedAt: Date.now(),
-    };
+    const updateData = { ...req.body };
 
     if (req.file) {
       const rType = resolveResourceType(req.body.type);
       const result = await uploadToCloudinary(req.file.buffer, rType);
-
-      mediaUrl = buildMediaUrl(result);
-      thumbnail = buildThumbnail(result);
-
-      updateData.mediaUrl = mediaUrl;
-      updateData.thumbnail = thumbnail;
+      updateData.mediaUrl = buildMediaUrl(result);
+      updateData.thumbnail = buildThumbnail(result);
       updateData.publicId = result.public_id;
       updateData.resourceType = result.resource_type;
     }
 
-    // Frontend sends "type", schema field is "mediaType"
     if (req.body.type !== undefined) {
       updateData.mediaType = req.body.type;
       delete updateData.type;
     }
-
-    // Avoid "" -> ObjectId cast errors on update too
     if (req.body.category !== undefined) {
       updateData.category = cleanRef(req.body.category);
     }
     if (req.body.language !== undefined) {
       updateData.language = cleanRef(req.body.language);
     }
-
-    // Convert boolean fields from FormData strings if present
     if (req.body.isTrending !== undefined) {
       updateData.isTrending = req.body.isTrending === "true";
     }
-
     if (req.body.isRecommended !== undefined) {
       updateData.isRecommended = req.body.isRecommended === "true";
     }
-
     if (req.body.isFeatured !== undefined) {
       updateData.isFeatured = req.body.isFeatured === "true";
     }
 
-    const media = await Media.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      {
-        new: true,
-      }
-    );
-
+    const media = await mediaService.updateMedia(req.params.id, updateData);
     if (!media) {
-      return res.status(404).json({
-        message: "Media not found",
-      });
+      return res.status(404).json({ message: "Media not found" });
     }
-
     res.json(withFreshUrl(media));
   } catch (err) {
-    res.status(500).json({
-      message: err.message,
-    });
+    res.status(500).json({ message: err.message });
   }
 };
 
 // DELETE MEDIA
 exports.deleteMedia = async (req, res) => {
   try {
-    const media = await Media.findByIdAndDelete(req.params.id);
-
+    const media = await mediaService.deleteMedia(req.params.id);
     if (!media) {
-      return res.status(404).json({
-        message: "Media not found",
-      });
+      return res.status(404).json({ message: "Media not found" });
     }
-
-    res.json({
-      message: "Media deleted successfully",
-    });
+    res.json({ message: "Media deleted successfully" });
   } catch (err) {
-    res.status(500).json({
-      message: err.message,
-    });
+    res.status(500).json({ message: err.message });
   }
 };
 
 // GET LATEST MEDIA
-// language-scoped filter, always applied — same pattern as
-// Church's getChurches/getPrimaryChurch
 exports.getLatestMedia = async (req, res) => {
   try {
-    const media = await Media.find({
-      status: "published",
-      language: req.language,
-    })
-      .populate("category", "name")
-      .sort({ createdAt: -1 })
-      .limit(10);
-
+    const media = await mediaService.getLatestMedia(req.language);
     res.json(media.map(withFreshUrl));
   } catch (err) {
-    res.status(500).json({
-      message: err.message,
-    });
+    res.status(500).json({ message: err.message });
   }
 };
 
 // GET TRENDING MEDIA
 exports.getTrendingMedia = async (req, res) => {
   try {
-    const media = await Media.find({
-      status: "published",
-      isTrending: true,
-      language: req.language,
-    })
-      .populate("category", "name")
-      .sort({ createdAt: -1 });
-
+    const media = await mediaService.getTrendingMedia(req.language);
     res.json(media.map(withFreshUrl));
   } catch (err) {
-    res.status(500).json({
-      message: err.message,
-    });
+    res.status(500).json({ message: err.message });
   }
 };
 
 // GET FEATURED MEDIA
 exports.getFeaturedMedia = async (req, res) => {
   try {
-    const media = await Media.find({
-      status: "published",
-      isFeatured: true,
-      language: req.language,
-    })
-      .populate("category", "name")
-      .sort({ createdAt: -1 });
-
+    const media = await mediaService.getFeaturedMedia(req.language);
     res.json(media.map(withFreshUrl));
   } catch (err) {
-    res.status(500).json({
-      message: err.message,
-    });
+    res.status(500).json({ message: err.message });
   }
 };
 
 // GET RECOMMENDED MEDIA
 exports.getRecommendedMedia = async (req, res) => {
   try {
-    const media = await Media.find({
-      status: "published",
-      isRecommended: true,
-      language: req.language,
-    })
-      .populate("category", "name")
-      .sort({ createdAt: -1 });
-
+    const media = await mediaService.getRecommendedMedia(req.language);
     res.json(media.map(withFreshUrl));
   } catch (err) {
-    res.status(500).json({
-      message: err.message,
-    });
+    res.status(500).json({ message: err.message });
   }
 };
 
 // GET MEDIA BY TYPE
 exports.getMediaByType = async (req, res) => {
   try {
-    const media = await Media.find({
-      status: "published",
-      mediaType: req.params.type,
-      language: req.language,
-    })
-      .populate("category", "name")
-      .sort({ createdAt: -1 });
-
+    const media = await mediaService.getMediaByType(req.params.type, req.language);
     res.json(media.map(withFreshUrl));
   } catch (err) {
-    res.status(500).json({
-      message: err.message,
-    });
+    res.status(500).json({ message: err.message });
   }
 };

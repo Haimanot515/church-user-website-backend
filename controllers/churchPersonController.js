@@ -1,7 +1,6 @@
-const ChurchPerson = require("../models/ChurchPerson");
+const churchPersonService = require("../services/churchPersonService");
 const cloudinary = require("../config/cloudinary");
 
-// Helper function to handle Cloudinary stream uploads (supports multiple photos)
 const uploadToCloudinary = (fileBuffer) => {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
@@ -15,7 +14,6 @@ const uploadToCloudinary = (fileBuffer) => {
   });
 };
 
-// Helper: upload an array of files and return their secure_urls
 const uploadMultipleToCloudinary = async (files) => {
   const uploads = await Promise.all(
     files.map((file) => uploadToCloudinary(file.buffer))
@@ -24,22 +22,9 @@ const uploadMultipleToCloudinary = async (files) => {
 };
 
 // GET: Fetch ALL Church Persons for the current language
-// Optionally filter by category via ?category=leader | specialThanks | testimony
-// Sorted by church rank (rankOrder) first, then newest first.
 exports.getChurchPersons = async (req, res) => {
   try {
-    const filter = { language: req.language };
-    if (req.query.category) {
-      filter.category = req.query.category;
-    }
-
-    const churchPersons = await ChurchPerson.find(filter)
-      .populate("language", "name code")
-      .sort({
-        rankOrder: 1,
-        createdAt: -1,
-        _id: -1,
-      });
+    const churchPersons = await churchPersonService.getChurchPersons(req.language, req.query.category);
     res.json(churchPersons);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -49,8 +34,7 @@ exports.getChurchPersons = async (req, res) => {
 // GET: Fetch a single Church Person by ID
 exports.getChurchPersonById = async (req, res) => {
   try {
-    const churchPerson = await ChurchPerson.findById(req.params.id)
-      .populate("language", "name code");
+    const churchPerson = await churchPersonService.getChurchPersonById(req.params.id);
     if (!churchPerson) {
       return res.status(404).json({ message: "Church person not found" });
     }
@@ -64,12 +48,10 @@ exports.getChurchPersonById = async (req, res) => {
 exports.createChurchPerson = async (req, res) => {
   try {
     let photoUrls = [];
-
     if (req.files && req.files.length > 0) {
       photoUrls = await uploadMultipleToCloudinary(req.files);
     }
-
-    const newChurchPerson = new ChurchPerson({
+    const savedChurchPerson = await churchPersonService.createChurchPerson({
       name: req.body.name,
       title: req.body.title,
       description: req.body.description,
@@ -77,12 +59,10 @@ exports.createChurchPerson = async (req, res) => {
       message: req.body.message,
       category: req.body.category,
       rank: req.body.rank,
-      rankOrder: req.body.rankOrder !== undefined ? Number(req.body.rankOrder) : 0,
+      rankOrder: req.body.rankOrder,
       language: req.body.language,
       photos: photoUrls,
     });
-
-    const savedChurchPerson = await newChurchPerson.save();
     res.status(201).json(savedChurchPerson);
   } catch (err) {
     console.error(err);
@@ -91,19 +71,16 @@ exports.createChurchPerson = async (req, res) => {
 };
 
 // PUT: Update a specific Church Person entry by ID
-// New photos are appended to existing ones unless replacePhotos=true is sent in the body
 exports.updateChurchPerson = async (req, res) => {
   try {
-    const existingPerson = await ChurchPerson.findById(req.params.id);
+    const existingPerson = await churchPersonService.findById(req.params.id);
     if (!existingPerson) {
       return res.status(404).json({ message: "Church person not found" });
     }
 
     let photoUrls = existingPerson.photos || [];
-
     if (req.files && req.files.length > 0) {
       const newPhotoUrls = await uploadMultipleToCloudinary(req.files);
-
       if (req.body.replacePhotos === "true") {
         photoUrls = newPhotoUrls;
       } else {
@@ -111,35 +88,11 @@ exports.updateChurchPerson = async (req, res) => {
       }
     }
 
-    const {
-      name,
-      title,
-      description,
-      role,
-      message,
-      category,
-      rank,
-      rankOrder,
-      language,
-    } = req.body;
-
-    const updatedChurchPerson = await ChurchPerson.findByIdAndUpdate(
+    const updatedChurchPerson = await churchPersonService.updateChurchPerson(
       req.params.id,
-      {
-        ...(name !== undefined && { name }),
-        ...(title !== undefined && { title }),
-        ...(description !== undefined && { description }),
-        ...(role !== undefined && { role }),
-        ...(message !== undefined && { message }),
-        ...(category !== undefined && { category }),
-        ...(rank !== undefined && { rank }),
-        ...(rankOrder !== undefined && { rankOrder: Number(rankOrder) }),
-        ...(language !== undefined && { language }),
-        photos: photoUrls,
-      },
-      { new: true }
+      req.body,
+      photoUrls
     );
-
     res.json(updatedChurchPerson);
   } catch (err) {
     console.error(err);
@@ -151,18 +104,13 @@ exports.updateChurchPerson = async (req, res) => {
 exports.removeChurchPersonPhoto = async (req, res) => {
   try {
     const { photoUrl } = req.body;
-
-    const churchPerson = await ChurchPerson.findById(req.params.id);
+    const churchPerson = await churchPersonService.findById(req.params.id);
     if (!churchPerson) {
       return res.status(404).json({ message: "Church person not found" });
     }
-
-    churchPerson.photos = (churchPerson.photos || []).filter(
-      (url) => url !== photoUrl
-    );
-
-    await churchPerson.save();
-    res.json(churchPerson);
+    const filtered = (churchPerson.photos || []).filter((url) => url !== photoUrl);
+    const updated = await churchPersonService.setPhotos(req.params.id, filtered);
+    res.json(updated);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -171,7 +119,7 @@ exports.removeChurchPersonPhoto = async (req, res) => {
 // DELETE: Remove a church person entry
 exports.deleteChurchPerson = async (req, res) => {
   try {
-    const churchPerson = await ChurchPerson.findByIdAndDelete(req.params.id);
+    const churchPerson = await churchPersonService.deleteChurchPerson(req.params.id);
     if (!churchPerson) {
       return res.status(404).json({ message: "Church person not found" });
     }

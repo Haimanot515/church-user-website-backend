@@ -1,0 +1,19 @@
+model Church {
+  id               String   @id @default(uuid())
+  churchName       String
+  description      String
+  shortDescription String   @default("")
+  history          String   @default("")
+  image            String   @default("")
+  address          String   @default("")
+  serviceDays      String   @default("")
+  serviceTime      String   @default("")
+  languageId       String
+  language         Language @relation(fields: [languageId], references: [id])
+  isFeatured       Boolean  @default(false)
+  isPrimary        Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  assignments ChurchAssignment[]
+}

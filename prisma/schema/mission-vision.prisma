@@ -1,0 +1,16 @@
+model MissionVision {
+  id         String            @id @default(uuid())
+  type       MissionVisionType
+  title      String
+  desc       String
+  order      Int               @default(0)
+  languageId String
+  language   Language          @relation(fields: [languageId], references: [id])
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+}
+
+enum MissionVisionType {
+  mission
+  vision
+}

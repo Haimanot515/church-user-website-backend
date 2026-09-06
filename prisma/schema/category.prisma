@@ -1,0 +1,17 @@
+model Category {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String
+  description String?
+  languageId  String
+  language    Language @relation(fields: [languageId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now())
+
+  posts Post[]
+  media Media[]
+
+  @@unique([name, languageId])
+  @@unique([slug, languageId])
+  @@index([createdAt])
+}

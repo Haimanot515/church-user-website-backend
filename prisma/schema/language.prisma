@@ -1,0 +1,22 @@
+model Language {
+  id        String   @id @default(uuid())
+  name      String
+  code      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  categories    Category[]
+  media         Media[]
+  posts         Post[]
+  churches      Church[]
+  churchPersons ChurchPerson[]
+  churchStories ChurchStory[]
+  faqs          Faq[]
+  missionVision MissionVision[]
+  promotions    Promotion[]
+  services      Service[]
+  homeHeroes    HomeHero[]
+  aboutHeroes   About[]
+
+  @@index([createdAt])
+}

@@ -1,0 +1,35 @@
+model Service {
+  id          String          @id @default(uuid())
+  title       String
+  description String
+  imageUrl    String?
+  day         String
+  time        String
+  schedule    String?
+  category    ServiceCategory @default(Other)
+  languageId  String
+  language    Language        @relation(fields: [languageId], references: [id])
+  location    String          @default("")
+  isFeatured  Boolean         @default(false)
+  status      ServiceStatus   @default(active)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @default(now())
+
+  @@index([createdAt])
+}
+
+enum ServiceCategory {
+  Worship
+  Teaching
+  Prayer
+  Music
+  Youth
+  Ministry
+  Outreach
+  Other
+}
+
+enum ServiceStatus {
+  active
+  inactive
+}

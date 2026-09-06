@@ -1,0 +1,18 @@
+model HomeHero {
+  id          String   @id @default(uuid())
+  title       String?
+  subtitle    String?
+  description String?
+  name        String?
+  role        String?
+  image       String?
+  quote       String?
+  story       String?
+  storyImage  String?
+  languageId  String
+  language    Language @relation(fields: [languageId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("homeheros")
+}

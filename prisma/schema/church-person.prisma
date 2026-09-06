@@ -1,0 +1,32 @@
+model ChurchPerson {
+  id          String                @id @default(uuid())
+  name        String?
+  photos      String[]              @default([])
+  title       String?
+  description String?
+  role        String?
+  message     String?
+  category    ChurchPersonCategory?
+  rank        ChurchPersonRank?
+  rankOrder   Int                   @default(0)
+  languageId  String
+  language    Language              @relation(fields: [languageId], references: [id])
+}
+
+enum ChurchPersonCategory {
+  leader
+  specialThanks
+  testimony
+}
+
+enum ChurchPersonRank {
+  patriarch
+  archbishop
+  bishop
+  archpriest
+  priest
+  deacon
+  subdeacon
+  elder
+  member
+}

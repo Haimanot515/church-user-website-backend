@@ -1,196 +1,73 @@
-const Language = require("../models/Language");
-
+const languageService = require("../services/languageService");
 
 // GET ALL LANGUAGES
 exports.getLanguages = async (req, res) => {
-
   try {
-
-    const languages = await Language.find()
-      .sort({ createdAt: -1, _id: -1 });
-
+    const languages = await languageService.getLanguages();
     res.json(languages);
-
   } catch (err) {
-
-    res.status(500).json({
-      message: err.message
-    });
-
+    res.status(500).json({ message: err.message });
   }
-
 };
-
-
-
 
 // GET SINGLE LANGUAGE
 exports.getLanguageById = async (req, res) => {
-
   try {
-
-    const language = await Language.findById(req.params.id);
-
+    const language = await languageService.getLanguageById(req.params.id);
     if (!language) {
-
-      return res.status(404).json({
-        message: "Language not found"
-      });
-
+      return res.status(404).json({ message: "Language not found" });
     }
-
     res.json(language);
-
   } catch (err) {
-
-    res.status(500).json({
-      message: err.message
-    });
-
+    res.status(500).json({ message: err.message });
   }
-
 };
-
-
-
 
 // CREATE LANGUAGE
 exports.createLanguage = async (req, res) => {
-
   try {
-
-    const existingLanguage = await Language.findOne({
-      code: req.body.code.toUpperCase()
-    });
-
+    const existingLanguage = await languageService.findByCode(req.body.code);
     if (existingLanguage) {
-
-      return res.status(400).json({
-        message: "Language code already exists"
-      });
-
+      return res.status(400).json({ message: "Language code already exists" });
     }
-
-    const language = new Language({
-
+    const savedLanguage = await languageService.createLanguage({
       name: req.body.name,
-
-      code: req.body.code.toUpperCase()
-
+      code: req.body.code,
     });
-
-    const savedLanguage = await language.save();
-
     res.status(201).json(savedLanguage);
-
   } catch (err) {
-
-    res.status(500).json({
-      message: err.message
-    });
-
+    res.status(500).json({ message: err.message });
   }
-
 };
-
-
-
 
 // UPDATE LANGUAGE
 exports.updateLanguage = async (req, res) => {
-
   try {
-
     if (req.body.code) {
-
-      const existingLanguage = await Language.findOne({
-
-        code: req.body.code.toUpperCase(),
-
-        _id: { $ne: req.params.id }
-
-      });
-
+      const existingLanguage = await languageService.findByCodeExcludingId(req.body.code, req.params.id);
       if (existingLanguage) {
-
-        return res.status(400).json({
-          message: "Language code already exists"
-        });
-
+        return res.status(400).json({ message: "Language code already exists" });
       }
-
-      req.body.code = req.body.code.toUpperCase();
-
     }
-
-    const language = await Language.findByIdAndUpdate(
-
-      req.params.id,
-
-      {
-
-        ...req.body,
-
-        updatedAt: Date.now()
-
-      },
-
-      {
-
-        new: true
-
-      }
-
-    );
-
+    const language = await languageService.updateLanguage(req.params.id, req.body);
     if (!language) {
-
-      return res.status(404).json({
-        message: "Language not found"
-      });
-
+      return res.status(404).json({ message: "Language not found" });
     }
-
     res.json(language);
-
   } catch (err) {
-
-    res.status(500).json({
-      message: err.message
-    });
-
+    res.status(500).json({ message: err.message });
   }
-
 };
-
-
-
 
 // DELETE LANGUAGE
 exports.deleteLanguage = async (req, res) => {
-
   try {
-
-    const language = await Language.findByIdAndDelete(req.params.id);
-
+    const language = await languageService.deleteLanguage(req.params.id);
     if (!language) {
-
-      return res.status(404).json({
-        message: "Language not found"
-      });
-
+      return res.status(404).json({ message: "Language not found" });
     }
-
-    res.json({
-      message: "Language deleted successfully"
-    });
-
+    res.json({ message: "Language deleted successfully" });
   } catch (err) {
-
-    res.status(500).json({
-      message: err.message
-    });
-
+    res.status(500).json({ message: err.message });
   }
-
 };

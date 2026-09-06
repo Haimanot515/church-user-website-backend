@@ -1,7 +1,6 @@
-const HomeHero = require("../models/homeHero");
+const homeHeroService = require("../services/homeHeroService");
 const cloudinary = require("../config/cloudinary");
 
-// Helper: upload a single file buffer to Cloudinary
 const uploadToCloudinary = (fileBuffer) => {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
@@ -19,9 +18,7 @@ const uploadToCloudinary = (fileBuffer) => {
 // @route   GET /api/home-hero
 exports.getHero = async (req, res) => {
   try {
-    const heroes = await HomeHero.find({ language: req.language })
-      .populate("language", "name code")
-      .sort({ createdAt: -1 });
+    const heroes = await homeHeroService.getHero(req.language);
     res.json(heroes);
   } catch (err) {
     console.error(err);
@@ -34,7 +31,6 @@ exports.getHero = async (req, res) => {
 exports.createHero = async (req, res) => {
   try {
     const { title, subtitle, description, name, role, quote, story, language } = req.body;
-
     let imageUrl = "";
     let storyImageUrl = "";
 
@@ -42,13 +38,12 @@ exports.createHero = async (req, res) => {
       const result = await uploadToCloudinary(req.files.image[0].buffer);
       imageUrl = result.secure_url;
     }
-
     if (req.files?.storyImage?.[0]) {
       const result = await uploadToCloudinary(req.files.storyImage[0].buffer);
       storyImageUrl = result.secure_url;
     }
 
-    const hero = await HomeHero.create({
+    const hero = await homeHeroService.createHero({
       title,
       subtitle,
       description,
@@ -60,7 +55,6 @@ exports.createHero = async (req, res) => {
       image: imageUrl,
       storyImage: storyImageUrl,
     });
-
     res.status(201).json(hero);
   } catch (err) {
     console.error("HomeHero Creation Error:", err);
@@ -68,41 +62,26 @@ exports.createHero = async (req, res) => {
   }
 };
 
-// @desc    Update a specific Home Hero entry by ID (keeps existing images if not changed)
+// @desc    Update a specific Home Hero entry by ID
 // @route   PUT /api/home-hero/:id
 exports.updateHero = async (req, res) => {
   try {
-    const updateData = {};
+    let imageUrl = "";
+    let storyImageUrl = "";
 
-    // Map body fields — only set fields that were actually provided
-    const fields = ["title", "subtitle", "description", "name", "role", "quote", "story", "language"];
-    fields.forEach((field) => {
-      if (req.body[field] !== undefined && req.body[field] !== "null") {
-        updateData[field] = req.body[field];
-      }
-    });
-
-    // Only overwrite images if new files were uploaded
     if (req.files?.image?.[0]) {
       const result = await uploadToCloudinary(req.files.image[0].buffer);
-      updateData.image = result.secure_url;
+      imageUrl = result.secure_url;
     }
-
     if (req.files?.storyImage?.[0]) {
       const result = await uploadToCloudinary(req.files.storyImage[0].buffer);
-      updateData.storyImage = result.secure_url;
+      storyImageUrl = result.secure_url;
     }
 
-    const hero = await HomeHero.findByIdAndUpdate(
-      req.params.id,
-      { $set: updateData },
-      { new: true, runValidators: true }
-    );
-
+    const hero = await homeHeroService.updateHero(req.params.id, req.body, imageUrl, storyImageUrl);
     if (!hero) {
       return res.status(404).json({ msg: "Home Hero entry not found" });
     }
-
     res.json(hero);
   } catch (err) {
     console.error("HomeHero Update Error:", err);
@@ -114,12 +93,10 @@ exports.updateHero = async (req, res) => {
 // @route   DELETE /api/home-hero/:id
 exports.deleteHero = async (req, res) => {
   try {
-    const hero = await HomeHero.findByIdAndDelete(req.params.id);
-
+    const hero = await homeHeroService.deleteHero(req.params.id);
     if (!hero) {
       return res.status(404).json({ msg: "Home Hero entry not found" });
     }
-
     res.json({ msg: "Home Hero entry deleted successfully" });
   } catch (err) {
     console.error("Delete Error:", err);

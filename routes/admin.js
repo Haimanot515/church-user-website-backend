@@ -1,12 +1,9 @@
 const express = require("express");
-// Changed: importing the sendEmail function from your Brevo-based config
 const { sendEmail } = require("../config/nodemailer");
-const router = express.Router(); 
+const router = express.Router();
 const auth = require("../middleware/authMiddleware");
 const adminAuth = require("../middleware/adminMiddleware");
-const User = require("../models/User");
-const Thread = require("../models/Thread");
-const Message = require("../models/Message");
+const prisma = require("../prisma/prisma.service");
 
 // ==================== GET ALL USERS ====================
 router.get("/users", auth, adminAuth, async (req, res) => {
@@ -16,18 +13,34 @@ router.get("/users", auth, adminAuth, async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    let query = {};
-    if (search) {
-      const regex = new RegExp(search, "i");
-      query = { $or: [{ name: regex }, { email: regex }] };
-    }
+    const where = search
+      ? {
+          OR: [
+            { name: { contains: search, mode: "insensitive" } },
+            { email: { contains: search, mode: "insensitive" } },
+          ],
+        }
+      : {};
 
-    const totalUsers = await User.countDocuments(query);
-    const users = await User.find(query)
-      .select("-password")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+    const [totalUsers, users] = await Promise.all([
+      prisma.user.count({ where }),
+      prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          isAdmin: true,
+          isVerified: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+    ]);
 
     res.json({
       success: true,
@@ -49,10 +62,12 @@ router.put("/users/:id", auth, adminAuth, async (req, res) => {
     const updatedData = { ...req.body };
     delete updatedData.password;
 
-    const updatedUser = await User.findByIdAndUpdate(userId, updatedData, {
-      new: true,
-      runValidators: true,
-    });
+    const updatedUser = await prisma.user
+      .update({ where: { id: userId }, data: updatedData })
+      .catch((err) => {
+        if (err.code === "P2025") return null;
+        throw err;
+      });
 
     if (!updatedUser) {
       return res.status(404).json({ success: false, msg: "User not found" });
@@ -70,7 +85,12 @@ router.delete("/delete/:id", auth, adminAuth, async (req, res) => {
   try {
     const userId = req.params.id;
 
-    const user = await User.findByIdAndDelete(userId);
+    const user = await prisma.user
+      .delete({ where: { id: userId } })
+      .catch((err) => {
+        if (err.code === "P2025") return null;
+        throw err;
+      });
 
     if (!user) {
       return res.status(404).json({ success: false, msg: "User not found" });
@@ -87,14 +107,17 @@ router.delete("/delete/:id", auth, adminAuth, async (req, res) => {
 router.get("/threads", auth, adminAuth, async (req, res) => {
   const limit = Number(req.query.limit) || 20;
   const cursor = req.query.cursor;
-  const filter = cursor ? { lastMessageAt: { $lt: new Date(cursor) } } : {};
+  const where = cursor ? { lastMessageAt: { lt: new Date(cursor) } } : {};
 
   try {
-    const threads = await Thread.find(filter)
-      .sort({ lastMessageAt: -1 })
-      .limit(limit);
+    const threads = await prisma.thread.findMany({
+      where,
+      orderBy: { lastMessageAt: "desc" },
+      take: limit,
+    });
 
-    const nextCursor = threads.length > 0 ? threads[threads.length - 1].lastMessageAt : null;
+    const nextCursor =
+      threads.length > 0 ? threads[threads.length - 1].lastMessageAt : null;
 
     res.json({ success: true, threads, nextCursor });
   } catch (err) {
@@ -109,19 +132,28 @@ router.get("/messages/:threadId", async (req, res) => {
   const cursor = req.query.cursor;
   const { threadId } = req.params;
 
-  const filter = { threadId };
+  const where = { threadId };
   if (cursor) {
-    filter.createdAt = { $lt: new Date(cursor) }; 
+    where.createdAt = { lt: new Date(cursor) };
   }
 
   try {
-    const messages = await Message.find(filter)
-      .sort({ createdAt: 1 }) 
-      .limit(limit);
+    const messages = await prisma.message.findMany({
+      where,
+      orderBy: { createdAt: "asc" },
+      take: limit,
+    });
 
-    const nextCursor = messages.length ? messages[messages.length - 1].createdAt : null;
-    
-    const thread = await Thread.findOneAndUpdate( { _id: threadId }, {unreadForAdmin:0} );
+    const nextCursor = messages.length
+      ? messages[messages.length - 1].createdAt
+      : null;
+
+    const thread = await prisma.thread
+      .update({
+        where: { id: threadId },
+        data: { unreadForAdmin: 0 },
+      })
+      .catch(() => null);
 
     res.json({ success: true, messages, nextCursor, thread });
   } catch (err) {
@@ -135,32 +167,38 @@ router.post("/reply", auth, adminAuth, async (req, res) => {
   const { threadId, message, clientId } = req.body;
 
   if (!threadId || !message) {
-    return res.status(400).json({ success: false, msg: "threadId and message are required" });
+    return res
+      .status(400)
+      .json({ success: false, msg: "threadId and message are required" });
   }
 
   try {
-    const adminMsgDoc = await Message.create({
-      threadId,
-      message,
-      fromAdmin: true,
-      clientId,
-    });
-    const adminMsg = adminMsgDoc.toObject();
-
-    const thread = await Thread.findByIdAndUpdate(
-      threadId,
-      {
-        lastMessage: message,
-        lastMessageAt: adminMsg.createdAt,
+    const adminMsg = await prisma.message.create({
+      data: {
+        threadId,
+        message,
+        fromAdmin: true,
+        clientId,
       },
-      { new: true }
-    );
+    });
+
+    const thread = await prisma.thread
+      .update({
+        where: { id: threadId },
+        data: {
+          lastMessage: message,
+          lastMessageAt: adminMsg.createdAt,
+        },
+      })
+      .catch((err) => {
+        if (err.code === "P2025") return null;
+        throw err;
+      });
 
     if (!thread) {
       return res.status(404).json({ success: false, msg: "Thread not found" });
     }
 
-    // ✅ Using the Brevo sendEmail function instead of transporter.sendMail
     const emailHtml = `
       <div style="font-family: sans-serif; color: #333;">
         <p>${message}</p>
@@ -170,14 +208,9 @@ router.post("/reply", auth, adminAuth, async (req, res) => {
       </div>
     `;
 
-    await sendEmail(
-      thread.userEmail,
-      "Reply from Admin",
-      emailHtml
-    );
+    await sendEmail(thread.userEmail, "Reply from Admin", emailHtml);
 
     res.status(201).json({ success: true, adminMsg, thread });
-
   } catch (err) {
     console.error("Error in /admin/reply:", err);
     res.status(500).json({ success: false, msg: "Server error" });
@@ -187,11 +220,11 @@ router.post("/reply", auth, adminAuth, async (req, res) => {
 // ==================== UNREAD USERS COUNT ====================
 router.get("/unread-users-count", auth, adminAuth, async (req, res) => {
   try {
-    const result = await Thread.aggregate([
-      { $group: { _id: null, count: { $sum: "$unreadForAdmin" } } },
-    ]);
+    const result = await prisma.thread.aggregate({
+      _sum: { unreadForAdmin: true },
+    });
 
-    res.json({ success: true, count: result[0]?.count || 0 });
+    res.json({ success: true, count: result._sum.unreadForAdmin || 0 });
   } catch (err) {
     console.error("Unread count error:", err);
     res.status(500).json({ success: false, msg: "Server error" });

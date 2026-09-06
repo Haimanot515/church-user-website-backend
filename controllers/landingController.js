@@ -1,4 +1,4 @@
-const LandingHero = require("../models/LandingHero");
+const landingHeroService = require("../services/landingHeroService");
 const cloudinary = require("../config/cloudinary");
 
 /* ===============================
@@ -36,7 +36,7 @@ const cleanData = (data) => {
 ================================= */
 exports.getLanding = async (req, res) => {
   try {
-    const landing = await LandingHero.findOne();
+    const landing = await landingHeroService.getLanding();
     res.json(landing || {});
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch portfolio data" });
@@ -49,27 +49,16 @@ exports.getLanding = async (req, res) => {
 exports.updateHero = async (req, res) => {
   try {
     let updateData = cleanData(req.body);
-    updateData.updatedAt = Date.now();
+    updateData.updatedAt = new Date();
 
-    // Images
     if (req.files?.heroImage) {
-      updateData.heroImage = await uploadToCloudinary(
-        req.files.heroImage[0].buffer
-      );
+      updateData.heroImage = await uploadToCloudinary(req.files.heroImage[0].buffer);
     }
-
     if (req.files?.campusImage) {
-      updateData.image = await uploadToCloudinary(
-        req.files.campusImage[0].buffer
-      );
+      updateData.image = await uploadToCloudinary(req.files.campusImage[0].buffer);
     }
 
-    const landing = await LandingHero.findOneAndUpdate(
-      {},
-      { $set: updateData },
-      { new: true, upsert: true }
-    );
-
+    const landing = await landingHeroService.upsertLanding(updateData);
     res.json(landing);
   } catch (err) {
     res.status(500).json({ error: "Failed to update hero and campus" });
@@ -82,18 +71,13 @@ exports.updateHero = async (req, res) => {
 exports.updateAcademic = async (req, res) => {
   try {
     let updateData = cleanData(req.body);
-    updateData.updatedAt = Date.now();
+    updateData.updatedAt = new Date();
 
     if (req.file) {
       updateData.aboutImage = await uploadToCloudinary(req.file.buffer);
     }
 
-    const landing = await LandingHero.findOneAndUpdate(
-      {},
-      { $set: updateData },
-      { new: true, upsert: true }
-    );
-
+    const landing = await landingHeroService.upsertLanding(updateData);
     res.json(landing);
   } catch (err) {
     res.status(500).json({ error: "Failed to update academic" });
@@ -106,38 +90,22 @@ exports.updateAcademic = async (req, res) => {
 exports.updateVideos = async (req, res) => {
   try {
     let updateData = cleanData(req.body);
-    updateData.updatedAt = Date.now();
+    updateData.updatedAt = new Date();
 
     if (req.files?.mainShowcaseFile) {
-      updateData.mainShowcaseId = await uploadToCloudinary(
-        req.files.mainShowcaseFile[0].buffer
-      );
+      updateData.mainShowcaseId = await uploadToCloudinary(req.files.mainShowcaseFile[0].buffer);
     }
-
     if (req.files?.selectedProjectFile) {
-      updateData.selectedProjectId = await uploadToCloudinary(
-        req.files.selectedProjectFile[0].buffer
-      );
+      updateData.selectedProjectId = await uploadToCloudinary(req.files.selectedProjectFile[0].buffer);
     }
-
     if (req.files?.architectureFile) {
-      updateData.architectureId = await uploadToCloudinary(
-        req.files.architectureFile[0].buffer
-      );
+      updateData.architectureId = await uploadToCloudinary(req.files.architectureFile[0].buffer);
     }
-
     if (req.files?.innovationFile) {
-      updateData.innovationId = await uploadToCloudinary(
-        req.files.innovationFile[0].buffer
-      );
+      updateData.innovationId = await uploadToCloudinary(req.files.innovationFile[0].buffer);
     }
 
-    const landing = await LandingHero.findOneAndUpdate(
-      {},
-      { $set: updateData },
-      { new: true, upsert: true }
-    );
-
+    const landing = await landingHeroService.upsertLanding(updateData);
     res.json(landing);
   } catch (err) {
     res.status(500).json({ error: "Failed to update videos" });
@@ -150,26 +118,16 @@ exports.updateVideos = async (req, res) => {
 exports.updateLifestyle = async (req, res) => {
   try {
     let updateData = cleanData(req.body);
-    updateData.updatedAt = Date.now();
+    updateData.updatedAt = new Date();
 
     if (req.files?.tutorialImage) {
-      updateData.tutorialImage = await uploadToCloudinary(
-        req.files.tutorialImage[0].buffer
-      );
+      updateData.tutorialImage = await uploadToCloudinary(req.files.tutorialImage[0].buffer);
     }
-
     if (req.files?.lifestyleImage) {
-      updateData.lifestyleImage = await uploadToCloudinary(
-        req.files.lifestyleImage[0].buffer
-      );
+      updateData.lifestyleImage = await uploadToCloudinary(req.files.lifestyleImage[0].buffer);
     }
 
-    const landing = await LandingHero.findOneAndUpdate(
-      {},
-      { $set: updateData },
-      { new: true, upsert: true }
-    );
-
+    const landing = await landingHeroService.upsertLanding(updateData);
     res.json(landing);
   } catch (err) {
     res.status(500).json({ error: "Failed to update lifestyle" });

@@ -1,0 +1,16 @@
+model ChurchStory {
+  id         String   @id @default(uuid())
+  year       String
+  range      String
+  title      String
+  desc       String
+  leader     String?
+  leaderRole String?
+  servedBy   String?
+  photo      String?
+  order      Int      @default(0)
+  languageId String
+  language   Language @relation(fields: [languageId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}

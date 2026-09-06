@@ -1,0 +1,15 @@
+model Thread {
+  id             String    @id @default(uuid())
+  userName       String
+  userEmail      String
+  lastMessage    String    @default("")
+  lastMessageAt  DateTime?
+  unreadForAdmin Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  messages Message[]
+
+  @@index([userEmail])
+  @@index([lastMessageAt])
+}

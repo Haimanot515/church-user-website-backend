@@ -1,0 +1,44 @@
+model Media {
+  id            String             @id @default(uuid())
+  title         String
+  description   String
+  mediaUrl      String
+  publicId      String?
+  resourceType  MediaResourceType?
+  thumbnail     String?
+  mediaType     MediaType
+  duration      String?
+  authorId      String
+  author        User               @relation(fields: [authorId], references: [id])
+  categoryId    String?
+  category      Category?          @relation(fields: [categoryId], references: [id])
+  languageId    String
+  language      Language           @relation(fields: [languageId], references: [id])
+  isTrending    Boolean            @default(false)
+  isFeatured    Boolean            @default(false)
+  isRecommended Boolean            @default(false)
+  status        ContentStatus      @default(draft)
+  publishedAt   DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @default(now())
+
+  @@index([createdAt])
+}
+
+enum MediaResourceType {
+  image
+  video
+  raw
+}
+
+enum MediaType {
+  photo
+  video
+  audio
+  document
+}
+
+enum ContentStatus {
+  draft
+  published
+}

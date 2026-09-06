@@ -1,7 +1,6 @@
-const About = require("../models/Aboutchurchhero");
+const aboutService = require("../services/aboutService");
 const cloudinary = require("../config/cloudinary");
 
-// Helper function to handle Cloudinary stream uploads
 const uploadToCloudinary = (fileBuffer) => {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
@@ -19,9 +18,7 @@ const uploadToCloudinary = (fileBuffer) => {
 // @route   GET /api/about
 exports.getAbout = async (req, res) => {
   try {
-    const about = await About.find({ language: req.language })
-      .populate("language", "name code")
-      .sort({ createdAt: -1, _id: -1 });
+    const about = await aboutService.getAbout(req.language);
     res.json(about);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -33,21 +30,17 @@ exports.getAbout = async (req, res) => {
 exports.createAbout = async (req, res) => {
   try {
     let imageUrl = "";
-
     if (req.file) {
       const result = await uploadToCloudinary(req.file.buffer);
       imageUrl = result.secure_url;
     }
-
-    const newAbout = new About({
+    const savedAbout = await aboutService.createAbout({
       title: req.body.title,
       churchLeader: req.body.churchLeader,
       description: req.body.description,
       language: req.body.language,
       image: imageUrl,
     });
-
-    const savedAbout = await newAbout.save();
     res.status(201).json(savedAbout);
   } catch (err) {
     console.error(err);
@@ -59,32 +52,15 @@ exports.createAbout = async (req, res) => {
 // @route   PUT /api/about/:id
 exports.updateAbout = async (req, res) => {
   try {
-    const updateData = {};
-
-    // Map body fields — only set fields that were actually provided
-    const fields = ["title", "churchLeader", "description", "language"];
-    fields.forEach((field) => {
-      if (req.body[field] !== undefined && req.body[field] !== "null") {
-        updateData[field] = req.body[field];
-      }
-    });
-
+    let imageUrl = "";
     if (req.file) {
       const result = await uploadToCloudinary(req.file.buffer);
-      updateData.image = result.secure_url;
+      imageUrl = result.secure_url;
     }
-
-    // This updates a specific entry using its ID (e.g., 6982ff326b288509e3790cfc)
-    const about = await About.findByIdAndUpdate(
-      req.params.id,
-      { $set: updateData },
-      { new: true, runValidators: true }
-    );
-
+    const about = await aboutService.updateAbout(req.params.id, req.body, imageUrl);
     if (!about) {
       return res.status(404).json({ message: "Entry not found" });
     }
-
     res.json(about);
   } catch (err) {
     console.error(err);
@@ -96,7 +72,7 @@ exports.updateAbout = async (req, res) => {
 // @route   DELETE /api/about/:id
 exports.deleteAbout = async (req, res) => {
   try {
-    const about = await About.findByIdAndDelete(req.params.id);
+    const about = await aboutService.deleteAbout(req.params.id);
     if (!about) return res.status(404).json({ message: "Entry not found" });
     res.json({ message: "About entry deleted successfully" });
   } catch (err) {

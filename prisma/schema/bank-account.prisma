@@ -1,0 +1,9 @@
+model BankAccount {
+  id            String   @id @default(uuid())
+  bank          String
+  accountName   String
+  accountNumber String
+  order         Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}

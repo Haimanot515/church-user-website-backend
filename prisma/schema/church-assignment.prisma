@@ -1,0 +1,18 @@
+model ChurchAssignment {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
+  churchId     String
+  church       Church    @relation(fields: [churchId], references: [id])
+  role         String    @default("Priest")
+  servingSince DateTime?
+  description  String    @default("")
+  image        String    @default("")
+  isCurrent    Boolean   @default(true)
+  isPrimary    Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([isCurrent, isPrimary])
+  @@index([userId, isCurrent])
+}

@@ -1,20 +1,15 @@
-const BankAccount = require("../models/BankAccount");
+const bankAccountService = require("../services/bankAccountService");
 
 // GET /bank-accounts?page=&limit=
-// Publicly accessible — returns accounts sorted by display order
 // @route   GET /api/bank-accounts
 exports.getBankAccounts = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
-
-    const total = await BankAccount.countDocuments();
-
-    const accounts = await BankAccount.find()
-      .sort({ order: 1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
-
+    const { accounts, total } = await bankAccountService.getBankAccounts({
+      skip: (page - 1) * limit,
+      take: limit,
+    });
     res.json({
       accounts,
       total,
@@ -27,11 +22,10 @@ exports.getBankAccounts = async (req, res) => {
 };
 
 // GET /bank-accounts/:id
-// Publicly accessible — a single account
 // @route   GET /api/bank-accounts/:id
 exports.getBankAccountById = async (req, res) => {
   try {
-    const account = await BankAccount.findById(req.params.id);
+    const account = await bankAccountService.getBankAccountById(req.params.id);
     if (!account) return res.status(404).json({ message: "Account not found" });
     res.json(account);
   } catch (err) {
@@ -40,11 +34,10 @@ exports.getBankAccountById = async (req, res) => {
 };
 
 // POST /bank-accounts
-// Admin only
 // @route   POST /api/bank-accounts
 exports.createBankAccount = async (req, res) => {
   try {
-    const account = await BankAccount.create(req.body);
+    const account = await bankAccountService.createBankAccount(req.body);
     res.status(201).json(account);
   } catch (err) {
     console.error(err);
@@ -53,16 +46,10 @@ exports.createBankAccount = async (req, res) => {
 };
 
 // PUT /bank-accounts/:id
-// Admin only
 // @route   PUT /api/bank-accounts/:id
 exports.updateBankAccount = async (req, res) => {
   try {
-    const account = await BankAccount.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    );
-
+    const account = await bankAccountService.updateBankAccount(req.params.id, req.body);
     if (!account) return res.status(404).json({ message: "Account not found" });
     res.json(account);
   } catch (err) {
@@ -72,11 +59,10 @@ exports.updateBankAccount = async (req, res) => {
 };
 
 // DELETE /bank-accounts/:id
-// Admin only
 // @route   DELETE /api/bank-accounts/:id
 exports.deleteBankAccount = async (req, res) => {
   try {
-    const account = await BankAccount.findByIdAndDelete(req.params.id);
+    const account = await bankAccountService.deleteBankAccount(req.params.id);
     if (!account) return res.status(404).json({ message: "Account not found" });
     res.json({ message: "Account deleted" });
   } catch (err) {

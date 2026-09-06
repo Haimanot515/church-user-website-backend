@@ -1,0 +1,11 @@
+model About {
+  id           String   @id @default(uuid())
+  title        String?
+  churchLeader String?
+  description  String?
+  image        String?
+  languageId   String
+  language     Language @relation(fields: [languageId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}

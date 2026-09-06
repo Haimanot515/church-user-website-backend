@@ -1,8 +1,8 @@
-const Skill = require("../models/Skill");
+const skillService = require("../services/skillService");
 
 exports.getSkills = async (req, res) => {
   try {
-    const skills = await Skill.find();
+    const skills = await skillService.getSkills();
     res.status(200).json(skills);
   } catch (err) {
     console.error(err);
@@ -12,21 +12,13 @@ exports.getSkills = async (req, res) => {
 
 exports.createSkill = async (req, res) => {
   try {
-    // Added category to req.body extraction
     const { name, level, category } = req.body;
 
-    // Basic validation
     if (!name || !level) {
       return res.status(400).json({ msg: "Name and level are required" });
     }
 
-    // Added category to the creation object
-    const skill = await Skill.create({ 
-      name, 
-      level, 
-      category 
-    });
-    
+    const skill = await skillService.createSkill({ name, level, category });
     res.status(201).json({ msg: "Skill created successfully", skill });
   } catch (err) {
     console.error(err);

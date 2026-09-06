@@ -1,0 +1,23 @@
+model LandingHero {
+  id                 String   @id @default(uuid())
+  title              String   @default("Building Digital Excellence")
+  description        String?
+  heroImage          String?
+  image              String?
+  missionTitle       String?
+  missionDescription String?
+  personalBio        String?
+  awards             String   @default("Top Academic Performer, Innovation Leader, Community Impact")
+  aboutImage         String?
+  mainShowcaseId     String?
+  selectedProjectId  String?
+  architectureId     String?
+  innovationId       String?
+  tutorialDesc       String?
+  tutorialImage      String?
+  lifestyleDesc      String?
+  lifestyleImage     String?
+  updatedAt          DateTime @default(now())
+
+  @@map("landingheros")
+}

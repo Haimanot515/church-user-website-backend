@@ -1,12 +1,11 @@
-const SkillHero = require("../models/skillHero");
+const skillHeroService = require("../services/skillHeroService");
 const cloudinary = require("../config/cloudinary");
 
 // @desc    Get Skill Hero data (Latest entry)
 // @route   GET /api/skill-hero
 exports.getSkillHero = async (req, res) => {
   try {
-    const hero = await SkillHero.findOne().sort({ createdAt: -1 });
-
+    const hero = await skillHeroService.getSkillHero();
     if (!hero) {
       return res.status(404).json({ msg: "Skill Hero section not found" });
     }
@@ -23,13 +22,11 @@ exports.updateSkillHero = async (req, res) => {
   try {
     const { title, subtitle, description, name, role, quote, story } = req.body;
 
-    // 1. DROP logic: Clear existing records before creating a new one
-    await SkillHero.deleteMany({});
+    await skillHeroService.deleteAllSkillHeroes();
 
     let imageUrl = "";
     let storyImageUrl = "";
 
-    // 2. Cloudinary Upload Logic (Multiple Files via Buffer)
     if (req.files) {
       const uploadToCloudinary = (buffer, folder) => {
         return new Promise((resolve, reject) => {
@@ -43,19 +40,15 @@ exports.updateSkillHero = async (req, res) => {
           stream.end(buffer);
         });
       };
-
-      // Upload main hero image
       if (req.files.image) {
         imageUrl = await uploadToCloudinary(req.files.image[0].buffer, "skill_hero");
       }
-      // Upload secondary story image
       if (req.files.storyImage) {
         storyImageUrl = await uploadToCloudinary(req.files.storyImage[0].buffer, "skill_story");
       }
     }
 
-    // 3. Create fresh record in the SkillHero collection
-    const hero = await SkillHero.create({
+    const hero = await skillHeroService.createSkillHero({
       title,
       subtitle,
       description,
@@ -64,13 +57,13 @@ exports.updateSkillHero = async (req, res) => {
       quote,
       story,
       image: imageUrl,
-      storyImage: storyImageUrl
+      storyImage: storyImageUrl,
     });
 
     res.status(201).json({
       success: true,
-      message: "✅ Skill Hero 'DROPPED' and replaced successfully!",
-      data: hero
+      message: "Skill Hero replaced successfully!",
+      data: hero,
     });
   } catch (err) {
     console.error("SkillHero Update Error:", err);
@@ -82,7 +75,7 @@ exports.updateSkillHero = async (req, res) => {
 // @route   DELETE /api/skill-hero
 exports.deleteSkillHero = async (req, res) => {
   try {
-    await SkillHero.deleteMany({});
+    await skillHeroService.deleteAllSkillHeroes();
     res.json({ msg: "Skill Hero section dropped successfully" });
   } catch (err) {
     res.status(500).json({ msg: "Server error" });

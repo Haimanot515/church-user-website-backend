@@ -1,0 +1,7 @@
+model Subscriber {
+  id             String    @id @default(uuid())
+  email          String?
+  active         Boolean?
+  subscribedAt   DateTime?
+  unsubscribedAt DateTime?
+}

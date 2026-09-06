@@ -1,0 +1,22 @@
+model Post {
+  id            String        @id @default(uuid())
+  title         String
+  description   String
+  content       String
+  imageUrl      String?
+  authorId      String
+  author        User          @relation(fields: [authorId], references: [id])
+  categoryId    String
+  category      Category      @relation(fields: [categoryId], references: [id])
+  languageId    String
+  language      Language      @relation(fields: [languageId], references: [id])
+  isTrending    Boolean       @default(false)
+  isFeatured    Boolean       @default(false)
+  isRecommended Boolean       @default(false)
+  status        ContentStatus @default(draft)
+  publishedAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @default(now())
+
+  @@index([createdAt])
+}
