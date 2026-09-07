@@ -1,24 +1,10 @@
 const prisma = require("../prisma/prisma.service");
-const cloudinary = require("../config/cloudinary");
 
-const uploadToCloudinary = (fileBuffer) => {
-  return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      { folder: "services" },
-      (error, result) => {
-        if (error) return reject(error);
-        resolve(result);
-      }
-    );
-    stream.end(fileBuffer);
-  });
-};
-
-exports.getServices = async ({ page, limit, category, language }) => {
-  const skip = (page - 1) * limit;
+// GET ALL SERVICES (Newest first, paginated)
+exports.getServices = async ({ languageId, category, skip, take }) => {
   const where = {
     status: "active",
-    languageId: language,
+    languageId,
     ...(category && { category }),
   };
 
@@ -28,19 +14,15 @@ exports.getServices = async ({ page, limit, category, language }) => {
       include: { language: { select: { name: true, code: true } } },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       skip,
-      take: limit,
+      take,
     }),
     prisma.service.count({ where }),
   ]);
 
-  return {
-    services,
-    currentPage: page,
-    totalPages: Math.ceil(totalServices / limit),
-    totalServices,
-  };
+  return { services, totalServices };
 };
 
+// GET SINGLE SERVICE
 exports.getServiceById = async (id) => {
   return prisma.service.findUnique({
     where: { id },
@@ -48,52 +30,55 @@ exports.getServiceById = async (id) => {
   });
 };
 
-exports.createService = async (body, file) => {
-  let imageUrl = "";
-  if (file) {
-    const result = await uploadToCloudinary(file.buffer);
-    imageUrl = result.secure_url;
-  }
+// alias — controller checks existence via this before update
+exports.findById = exports.getServiceById;
 
-  const day = body.day;
-  const time = body.time;
+// CREATE SERVICE
+exports.createService = async (data) => {
+  const {
+    title,
+    description,
+    imageUrl,
+    day,
+    time,
+    category,
+    language,
+    location,
+    isFeatured,
+    status,
+  } = data;
 
   return prisma.service.create({
     data: {
-      title: body.title,
-      description: body.description,
+      title,
+      description,
       imageUrl,
       day,
       time,
       schedule: `${day}, ${time}`, // replaces pre("save") hook
-      category: body.category,
-      languageId: body.language,
-      location: body.location,
-      isFeatured: body.isFeatured || false,
-      status: body.status || "active",
+      category,
+      languageId: language,
+      location,
+      isFeatured,
+      status,
     },
   });
 };
 
-exports.updateService = async (id, body, file) => {
-  const existing = await prisma.service.findUnique({ where: { id } });
-  if (!existing) return null;
-
-  let imageUrl;
-  if (file) {
-    const result = await uploadToCloudinary(file.buffer);
-    imageUrl = result.secure_url;
-  }
-
+// UPDATE SERVICE
+exports.updateService = async (id, body, existing, imageUrl) => {
   // Resolve day/time: use new values if provided, otherwise fall back
   // to existing, so schedule stays correct even on partial updates.
   const day = body.day ?? existing.day;
   const time = body.time ?? existing.time;
 
+  const { language, ...rest } = body; // strip raw "language" key, remap to languageId
+
   return prisma.service.update({
     where: { id },
     data: {
-      ...body,
+      ...rest,
+      ...(language && { languageId: language }),
       ...(imageUrl && { imageUrl }),
       day,
       time,
@@ -103,10 +88,12 @@ exports.updateService = async (id, body, file) => {
   });
 };
 
+// DELETE SERVICE
 exports.deleteService = async (id) => {
   return prisma.service.delete({ where: { id } }).catch(() => null);
 };
 
+// GET FEATURED SERVICES
 exports.getFeaturedServices = async (language) => {
   return prisma.service.findMany({
     where: { isFeatured: true, status: "active", languageId: language },
@@ -115,6 +102,7 @@ exports.getFeaturedServices = async (language) => {
   });
 };
 
+// GET ACTIVE SERVICES
 exports.getActiveServices = async (language) => {
   return prisma.service.findMany({
     where: { status: "active", languageId: language },

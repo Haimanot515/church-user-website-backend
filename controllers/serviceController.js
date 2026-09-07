@@ -19,12 +19,14 @@ exports.getServices = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
+
     const { services, totalServices } = await serviceService.getServices({
       languageId: req.language,
       category: req.query.category,
       skip: (page - 1) * limit,
       take: limit,
     });
+
     res.json({
       services,
       currentPage: page,
@@ -57,6 +59,7 @@ exports.createService = async (req, res) => {
       const result = await uploadToCloudinary(req.file.buffer);
       imageUrl = result.secure_url;
     }
+
     const savedService = await serviceService.createService({
       title: req.body.title,
       description: req.body.description,
@@ -69,6 +72,7 @@ exports.createService = async (req, res) => {
       isFeatured: req.body.isFeatured || false,
       status: req.body.status || "active",
     });
+
     res.status(201).json(savedService);
   } catch (err) {
     console.error(err);
@@ -84,13 +88,19 @@ exports.updateService = async (req, res) => {
       return res.status(404).json({ message: "Service not found" });
     }
 
-    let imageUrl = "";
+    let imageUrl;
     if (req.file) {
       const result = await uploadToCloudinary(req.file.buffer);
       imageUrl = result.secure_url;
     }
 
-    const updatedService = await serviceService.updateService(req.params.id, req.body, existing, imageUrl);
+    const updatedService = await serviceService.updateService(
+      req.params.id,
+      req.body,
+      existing,
+      imageUrl
+    );
+
     res.json(updatedService);
   } catch (err) {
     res.status(500).json({ message: err.message });
