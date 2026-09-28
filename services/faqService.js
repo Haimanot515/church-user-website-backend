@@ -1,11 +1,43 @@
 const prisma = require("../prisma/prisma.service");
+const { FaqCategory } = require("@prisma/client");
 
-// Mirrors: Faq.find(filter).populate("language","name code").sort({category:1, order:1, createdAt:-1, _id:-1})
+/* ------------------------------ helpers ------------------------------ */
+
+const httpError = (message, statusCode = 400) =>
+  Object.assign(new Error(message), { statusCode });
+
+// Skip undefined, null, "", and the literal "null"/"undefined" strings
+// that some form clients send.
+const isProvided = (v) =>
+  v !== undefined &&
+  v !== null &&
+  !(typeof v === "string" && ["", "null", "undefined"].includes(v.trim()));
+
+// Number("") is 0 and Number("abc") is NaN, both bad for an Int column.
+const toInt = (v, field = "value") => {
+  const n = Number(v);
+  if (!Number.isInteger(n)) throw httpError(`${field} must be a whole number`);
+  return n;
+};
+
+const assertCategory = (category) => {
+  if (!Object.values(FaqCategory).includes(category)) {
+    throw httpError(
+      `Invalid category: "${category}". Allowed: ${Object.values(FaqCategory).join(", ")}`
+    );
+  }
+};
+
+/* ------------------------------ queries ------------------------------ */
+
 exports.getFaq = async (languageId, category) => {
+  // An invalid enum in a where clause makes Prisma throw, so validate first
+  if (isProvided(category)) assertCategory(category);
+
   return prisma.faq.findMany({
     where: {
       languageId,
-      ...(category && { category }),
+      ...(isProvided(category) && { category }),
     },
     include: { language: { select: { name: true, code: true } } },
     orderBy: [
@@ -17,52 +49,53 @@ exports.getFaq = async (languageId, category) => {
   });
 };
 
-// Mirrors: Faq.schema.path("category").enumValues
-// Mongoose-specific schema introspection has no Prisma equivalent —
-// the valid category list is now a static array matching the
-// FaqCategory enum defined in schema.prisma. Must be kept in sync
-// manually if the enum ever changes.
-exports.getFaqCategories = () => {
-  return ["Information", "Faith", "Contact"];
-};
+// Read from the generated enum, so it can never drift out of sync with schema.prisma
+exports.getFaqCategories = () => Object.values(FaqCategory);
 
-// Mirrors: new Faq({...}).save()
+/* ------------------------------ create ------------------------------- */
+
 exports.createFaq = async ({ question, answer, category, order, language }) => {
+  assertCategory(category);
+
   return prisma.faq.create({
     data: {
       question,
       answer,
       category,
-      ...(order !== undefined && { order: Number(order) }),
+      ...(isProvided(order) && { order: toInt(order, "order") }),
       languageId: language,
     },
   });
 };
 
-// Mirrors: Faq.findByIdAndUpdate(id, { $set: updateData }, { new:true, runValidators:true })
+/* ------------------------------ update ------------------------------- */
+
 exports.updateFaq = async (id, body) => {
   const data = {};
-  const passthroughFields = ["question", "answer", "category"];
-  passthroughFields.forEach((f) => {
-    if (body[f] !== undefined && body[f] !== "null") data[f] = body[f];
+
+  ["question", "answer", "category"].forEach((f) => {
+    if (isProvided(body[f])) data[f] = body[f];
   });
-  if (body.order !== undefined && body.order !== "null") data.order = Number(body.order);
-  if (body.language !== undefined && body.language !== "null") data.languageId = body.language;
+
+  if (data.category !== undefined) assertCategory(data.category);
+  if (isProvided(body.order)) data.order = toInt(body.order, "order");
+  if (isProvided(body.language)) data.languageId = body.language;
 
   try {
     return await prisma.faq.update({ where: { id }, data });
   } catch (err) {
-    if (err.code === "P2025") return null;
+    if (err.code === "P2025") return null; // record not found
     throw err;
   }
 };
 
-// Mirrors: Faq.findByIdAndDelete(id)
+/* ------------------------------ delete ------------------------------- */
+
 exports.deleteFaq = async (id) => {
   try {
     return await prisma.faq.delete({ where: { id } });
   } catch (err) {
-    if (err.code === "P2025") return null;
+    if (err.code === "P2025") return null; // record not found
     throw err;
   }
 };

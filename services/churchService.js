@@ -1,7 +1,27 @@
 const prisma = require("../prisma/prisma.service");
 
-// Mirrors: Church.updateMany({ language, isPrimary: true }, { isPrimary: false })
-// Scoped PER LANGUAGE (matches controller comment exactly)
+/* ------------------------------ helpers ------------------------------ */
+
+// "true" / "on" / "1" / true -> true, "false" / "off" / "0" / false -> false,
+// undefined / null / "" / "null" / "undefined" -> undefined (not provided)
+const toBool = (v) => {
+  if (v === undefined || v === null) return undefined;
+  if (typeof v === "boolean") return v;
+  const s = String(v).trim().toLowerCase();
+  if (["", "null", "undefined"].includes(s)) return undefined;
+  return ["true", "on", "1"].includes(s);
+};
+
+// Text fields: skip undefined, null and the literal "null"/"undefined" strings
+// that some form clients send. Empty string is kept (lets users clear a field).
+const isProvided = (v) =>
+  v !== undefined && v !== null && !["null", "undefined"].includes(v);
+
+const langInclude = { language: { select: { name: true, code: true } } };
+
+/* ------------------------------ primary flag ------------------------- */
+
+// Scoped PER LANGUAGE. Optionally excludes one church (the one being set primary).
 exports.unsetPrimaryForLanguage = async (languageId, excludeId = null) => {
   return prisma.church.updateMany({
     where: {
@@ -13,10 +33,12 @@ exports.unsetPrimaryForLanguage = async (languageId, excludeId = null) => {
   });
 };
 
-// Mirrors: Church.create({...})
+/* ------------------------------ create ------------------------------- */
+
 exports.createChurch = async ({
   churchName,
   description,
+  shortDescription,
   history,
   image,
   address,
@@ -26,82 +48,104 @@ exports.createChurch = async ({
   isFeatured,
   isPrimary,
 }) => {
+  const featured = toBool(isFeatured);
+  const primary = toBool(isPrimary);
+
   return prisma.church.create({
     data: {
       churchName,
       description,
-      ...(history !== undefined && { history }),
+      ...(isProvided(shortDescription) && { shortDescription }),
+      ...(isProvided(history) && { history }),
       image,
-      ...(address !== undefined && { address }),
-      ...(serviceDays !== undefined && { serviceDays }),
-      ...(serviceTime !== undefined && { serviceTime }),
+      ...(isProvided(address) && { address }),
+      ...(isProvided(serviceDays) && { serviceDays }),
+      ...(isProvided(serviceTime) && { serviceTime }),
       languageId: language,
-      ...(isFeatured !== undefined && { isFeatured }),
-      isPrimary,
+      ...(featured !== undefined && { isFeatured: featured }),
+      ...(primary !== undefined && { isPrimary: primary }),
     },
   });
 };
 
-// Mirrors: Church.find({ language: req.language }).populate("language","name code").sort({createdAt:-1})
+/* ------------------------------ queries ------------------------------ */
+
 exports.getChurches = async (languageId) => {
   return prisma.church.findMany({
     where: { languageId },
-    include: { language: { select: { name: true, code: true } } },
+    include: langInclude,
     orderBy: { createdAt: "desc" },
   });
 };
 
-// Mirrors: Church.findById(id).populate("language","name code")
 exports.getChurchById = async (id) => {
-  return prisma.church.findUnique({
-    where: { id },
-    include: { language: { select: { name: true, code: true } } },
-  });
+  return prisma.church.findUnique({ where: { id }, include: langInclude });
 };
 
-// Mirrors: Church.findOne({ isPrimary: true, language: req.language }).populate("language","name code")
 exports.getPrimaryChurch = async (languageId) => {
   return prisma.church.findFirst({
     where: { isPrimary: true, languageId },
-    include: { language: { select: { name: true, code: true } } },
+    include: langInclude,
   });
 };
 
-// Mirrors: Church.findById(id) (used by controller before deciding update's languageId fallback)
+// Used by controller before deciding update's languageId fallback
 exports.findById = async (id) => {
   return prisma.church.findUnique({ where: { id } });
 };
 
-// Mirrors: Church.findByIdAndUpdate(id, updateData, {new:true, runValidators:true}).populate("language","name code")
+/* ------------------------------ update ------------------------------- */
+
 exports.updateChurch = async (id, updateData) => {
   const data = {};
-  const passthroughFields = ["churchName", "description", "history", "address", "serviceDays", "serviceTime"];
-  passthroughFields.forEach((f) => {
-    if (updateData[f] !== undefined) data[f] = updateData[f];
+
+  // Explicit whitelist of editable text fields
+  [
+    "churchName",
+    "description",
+    "shortDescription",
+    "history",
+    "address",
+    "serviceDays",
+    "serviceTime",
+  ].forEach((f) => {
+    if (isProvided(updateData[f])) data[f] = updateData[f];
   });
-  if (updateData.language !== undefined) data.languageId = updateData.language;
-  if (updateData.isFeatured !== undefined) data.isFeatured = updateData.isFeatured;
-  if (updateData.isPrimary !== undefined) data.isPrimary = updateData.isPrimary;
+
+  if (isProvided(updateData.language) && updateData.language !== "") {
+    data.languageId = updateData.language;
+  }
+
+  const featured = toBool(updateData.isFeatured);
+  if (featured !== undefined) data.isFeatured = featured;
+
+  const primary = toBool(updateData.isPrimary);
+  if (primary !== undefined) data.isPrimary = primary;
+
   if (updateData.image) data.image = updateData.image;
 
   try {
-    return await prisma.church.update({
-      where: { id },
-      data,
-      include: { language: { select: { name: true, code: true } } },
-    });
+    return await prisma.church.update({ where: { id }, data, include: langInclude });
   } catch (err) {
-    if (err.code === "P2025") return null;
+    if (err.code === "P2025") return null; // record not found
     throw err;
   }
 };
 
-// Mirrors: Church.findByIdAndDelete(id)
+/* ------------------------------ delete ------------------------------- */
+
 exports.deleteChurch = async (id) => {
   try {
     return await prisma.church.delete({ where: { id } });
   } catch (err) {
-    if (err.code === "P2025") return null;
+    if (err.code === "P2025") return null; // record not found
+    if (err.code === "P2003") {
+      // ChurchAssignment rows still reference this church
+      throw Object.assign(
+        new Error("Cannot delete this church while it has assignments. Remove them first."),
+        { statusCode: 409 }
+      );
+    }
     throw err;
   }
 };
