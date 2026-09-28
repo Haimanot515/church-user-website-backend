@@ -19,6 +19,28 @@ const isProvided = (v) =>
 
 const langInclude = { language: { select: { name: true, code: true } } };
 
+/* ------------------------------ language check ----------------------- */
+
+// Throws a clear 400 if the value isn't the id of an existing Language row.
+// Call this BEFORE any side effects (like unsetting the primary church).
+exports.assertLanguageExists = async (languageId) => {
+  if (typeof languageId !== "string" || !languageId.trim()) {
+    throw Object.assign(new Error("language is required"), { statusCode: 400 });
+  }
+  const lang = await prisma.language.findUnique({
+    where: { id: languageId },
+    select: { id: true },
+  });
+  if (!lang) {
+    throw Object.assign(
+      new Error(
+        `Language ${JSON.stringify(languageId)} does not exist. Send the language id (UUID), not its code or name.`
+      ),
+      { statusCode: 400 }
+    );
+  }
+};
+
 /* ------------------------------ primary flag ------------------------- */
 
 // Scoped PER LANGUAGE. Optionally excludes one church (the one being set primary).
