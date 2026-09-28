@@ -1,5 +1,8 @@
 const prisma = require("../prisma/prisma.service");
 
+// Always include the language id so the frontend can send it back on edit
+const languageInclude = { language: { select: { id: true, name: true, code: true } } };
+
 // Mirrors: ChurchPerson.find(filter).populate("language","name code")
 //          .sort({ rankOrder:1, createdAt:-1, _id:-1 })
 // NOTE: ChurchPerson has no createdAt field in the Postgres schema, so the
@@ -13,7 +16,7 @@ exports.getChurchPersons = async (languageId, category) => {
 
   return prisma.churchPerson.findMany({
     where,
-    include: { language: { select: { name: true, code: true } } },
+    include: languageInclude,
     orderBy: [{ rankOrder: "asc" }, { id: "desc" }],
   });
 };
@@ -22,7 +25,7 @@ exports.getChurchPersons = async (languageId, category) => {
 exports.getChurchPersonById = async (id) => {
   return prisma.churchPerson.findUnique({
     where: { id },
-    include: { language: { select: { name: true, code: true } } },
+    include: languageInclude,
   });
 };
 
@@ -52,10 +55,13 @@ exports.createChurchPerson = async ({
       languageId: language,
       photos: photos || [],
     },
+    include: languageInclude,
   });
 };
 
 // Mirrors: findById (to read existing photos) + findByIdAndUpdate(id, {...}, { new: true })
+// `newPhotoUrls` must contain ONLY the newly uploaded URLs; merging with the
+// existing photos (or replacing them) happens here.
 exports.updateChurchPerson = async (id, body, newPhotoUrls) => {
   const existing = await prisma.churchPerson.findUnique({ where: { id } });
   if (!existing) return null;
@@ -89,12 +95,16 @@ exports.updateChurchPerson = async (id, body, newPhotoUrls) => {
     ...(category !== undefined && { category }),
     ...(rank !== undefined && { rank }),
     ...(rankOrder !== undefined && { rankOrder: Number(rankOrder) }),
-    ...(language !== undefined && { languageId: language }),
+    ...(language !== undefined && language !== "" && { languageId: language }),
     photos,
   };
 
   try {
-    return await prisma.churchPerson.update({ where: { id }, data });
+    return await prisma.churchPerson.update({
+      where: { id },
+      data,
+      include: languageInclude,
+    });
   } catch (err) {
     if (err.code === "P2025") return null; // matches "not found" 404 path
     throw err;
@@ -111,6 +121,7 @@ exports.removeChurchPersonPhoto = async (id, photoUrl) => {
   return prisma.churchPerson.update({
     where: { id },
     data: { photos },
+    include: languageInclude,
   });
 };
 

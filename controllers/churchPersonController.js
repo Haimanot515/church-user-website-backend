@@ -73,26 +73,29 @@ exports.createChurchPerson = async (req, res) => {
 // PUT: Update a specific Church Person entry by ID
 exports.updateChurchPerson = async (req, res) => {
   try {
-    const existingPerson = await churchPersonService.findById(req.params.id);
+    // Check existence first so we don't upload photos for a missing record
+    const existingPerson = await churchPersonService.getChurchPersonById(req.params.id);
     if (!existingPerson) {
       return res.status(404).json({ message: "Church person not found" });
     }
 
-    let photoUrls = existingPerson.photos || [];
+    // Upload ONLY the new photos. The service merges them with the existing
+    // ones (or replaces them when body.replacePhotos === "true").
+    let newPhotoUrls = [];
     if (req.files && req.files.length > 0) {
-      const newPhotoUrls = await uploadMultipleToCloudinary(req.files);
-      if (req.body.replacePhotos === "true") {
-        photoUrls = newPhotoUrls;
-      } else {
-        photoUrls = [...photoUrls, ...newPhotoUrls];
-      }
+      newPhotoUrls = await uploadMultipleToCloudinary(req.files);
     }
 
     const updatedChurchPerson = await churchPersonService.updateChurchPerson(
       req.params.id,
       req.body,
-      photoUrls
+      newPhotoUrls
     );
+
+    if (!updatedChurchPerson) {
+      return res.status(404).json({ message: "Church person not found" });
+    }
+
     res.json(updatedChurchPerson);
   } catch (err) {
     console.error(err);
@@ -104,14 +107,13 @@ exports.updateChurchPerson = async (req, res) => {
 exports.removeChurchPersonPhoto = async (req, res) => {
   try {
     const { photoUrl } = req.body;
-    const churchPerson = await churchPersonService.findById(req.params.id);
-    if (!churchPerson) {
+    const updated = await churchPersonService.removeChurchPersonPhoto(req.params.id, photoUrl);
+    if (!updated) {
       return res.status(404).json({ message: "Church person not found" });
     }
-    const filtered = (churchPerson.photos || []).filter((url) => url !== photoUrl);
-    const updated = await churchPersonService.setPhotos(req.params.id, filtered);
     res.json(updated);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: err.message });
   }
 };
