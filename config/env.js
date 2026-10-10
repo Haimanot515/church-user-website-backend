@@ -165,9 +165,10 @@ exports.getAllowedOrigins = () => {
     "https://church-user-website-frontend.onrender.com",
   ];
 
-  const dev = isProd()
-    ? []
-    : ["http://localhost:5173", "http://localhost:5174", "http://localhost:5176"];
+  const dev =
+    isProd() && process.env.ALLOW_LOCALHOST_ORIGINS !== "true"
+      ? []
+      : ["http://localhost:5173", "http://localhost:5174", "http://localhost:5176"];
 
   return [...new Set([...(fromEnv.length ? fromEnv : defaults), ...dev])];
 };
