@@ -1,6 +1,6 @@
 const router = require("express").Router();
-const auth = require("../middleware/authMiddleware");
-const adminAuth = require("../middleware/adminMiddleware");
+const protect = require("../middleware/protect");
+const { P } = require("../config/permissions");
 const {
   getBankAccounts,
   getBankAccountById,
@@ -14,10 +14,10 @@ router.get("/", getBankAccounts);
 // GET: Publicly accessible — single account by id
 router.get("/:id", getBankAccountById);
 // POST: Restricted to admin
-router.post("/", auth, adminAuth, createBankAccount);
+router.post("/", ...protect(P.BANK_ACCOUNT_MANAGE, "BankAccount"), createBankAccount);
 // PUT: Restricted to admin
-router.put("/:id", auth, adminAuth, updateBankAccount);
+router.put("/:id", ...protect(P.BANK_ACCOUNT_MANAGE, "BankAccount"), updateBankAccount);
 // DELETE: Restricted to admin
-router.delete("/:id", auth, adminAuth, deleteBankAccount);
+router.delete("/:id", ...protect(P.BANK_ACCOUNT_MANAGE, "BankAccount"), deleteBankAccount);
 
 module.exports = router;

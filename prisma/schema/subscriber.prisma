@@ -4,4 +4,6 @@ model Subscriber {
   active         Boolean?
   subscribedAt   DateTime?
   unsubscribedAt DateTime?
+
+  @@index([email])
 }

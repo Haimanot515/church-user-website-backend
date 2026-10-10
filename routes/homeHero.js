@@ -1,6 +1,6 @@
 const router = require("express").Router();
-const auth = require("../middleware/authMiddleware");
-const adminAuth = require("../middleware/adminMiddleware");
+const protect = require("../middleware/protect");
+const { P } = require("../config/permissions");
 const upload = require("../middleware/uploadMiddleware");
 const {
   getHero,
@@ -19,12 +19,12 @@ const heroUpload = upload.fields([
 router.get("/", getHero);
 
 // POST /api/homeheros — Restricted to admin; used to create a hero entry
-router.post("/", auth, adminAuth, heroUpload, createHero);
+router.post("/", ...protect(P.HOME_HERO_MANAGE, "HomeHero"), heroUpload, createHero);
 
 // PUT /api/homeheros/:id — Restricted to admin; used to update a specific hero entry
-router.put("/:id", auth, adminAuth, heroUpload, updateHero);
+router.put("/:id", ...protect(P.HOME_HERO_MANAGE, "HomeHero"), heroUpload, updateHero);
 
 // DELETE /api/homeheros/:id — Restricted to admin; used to remove a specific hero entry
-router.delete("/:id", auth, adminAuth, deleteHero);
+router.delete("/:id", ...protect(P.HOME_HERO_MANAGE, "HomeHero"), deleteHero);
 
 module.exports = router;

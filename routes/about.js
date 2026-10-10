@@ -1,6 +1,6 @@
 const router = require("express").Router();
-const auth = require("../middleware/authMiddleware");
-const adminAuth = require("../middleware/adminMiddleware");
+const protect = require("../middleware/protect");
+const { P } = require("../config/permissions");
 const upload = require("../middleware/uploadMiddleware");
 const {
   getAbout,
@@ -13,12 +13,12 @@ const {
 router.get("/", getAbout);
 
 // POST: Restricted to admin; used to create the about section for the first time
-router.post("/", auth, adminAuth, upload.single("image"), createAbout);
+router.post("/", ...protect(P.ABOUT_MANAGE, "About"), upload.single("image"), createAbout);
 
 // PUT: Restricted to admin; used to update a specific about entry by ID
-router.put("/:id", auth, adminAuth, upload.single("image"), updateAbout);
+router.put("/:id", ...protect(P.ABOUT_MANAGE, "About"), upload.single("image"), updateAbout);
 
 // DELETE: Restricted to admin; used to delete a specific about entry by ID
-router.delete("/:id", auth, adminAuth, deleteAbout);
+router.delete("/:id", ...protect(P.ABOUT_MANAGE, "About"), deleteAbout);
 
 module.exports = router;

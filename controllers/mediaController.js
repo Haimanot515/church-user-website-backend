@@ -1,5 +1,11 @@
 const mediaService = require("../services/mediaService");
+const { hasPermission } = require("../utils/access");
+const { P } = require("../config/permissions");
 const cloudinary = require("../config/cloudinary");
+const sendError = require("../utils/sendError");
+const pick = require("../utils/pick");
+
+const isAdmin = (req) => hasPermission(req.user, P.MEDIA_MANAGE);
 
 const uploadToCloudinary = (fileBuffer, resourceType = "auto") => {
   return new Promise((resolve, reject) => {
@@ -34,8 +40,7 @@ const buildThumbnail = (result) => {
     });
   }
   const isRawPdf =
-    result.resource_type === "raw" &&
-    (result.format === "pdf" || /\.pdf$/i.test(result.public_id));
+    result.resource_type === "raw" && (result.format === "pdf" || /\.pdf$/i.test(result.public_id));
   if (isRawPdf) {
     return cloudinary.url(result.public_id, {
       resource_type: "image",
@@ -82,10 +87,10 @@ const withFreshUrl = (mediaDoc) => {
 // GET ALL MEDIA
 exports.getMedia = async (req, res) => {
   try {
-    const media = await mediaService.getMedia();
+    const media = await mediaService.getMedia({ includeDrafts: isAdmin(req) });
     res.json(media.map(withFreshUrl));
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -93,12 +98,13 @@ exports.getMedia = async (req, res) => {
 exports.getMediaById = async (req, res) => {
   try {
     const media = await mediaService.getMediaById(req.params.id);
-    if (!media) {
+    // Drafts are only visible to admins.
+    if (!media || (media.status !== "published" && !isAdmin(req))) {
       return res.status(404).json({ message: "Media not found" });
     }
     res.json(withFreshUrl(media));
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -131,23 +137,31 @@ exports.createMedia = async (req, res) => {
       author: req.user.id,
       category: cleanRef(req.body.category),
       language: cleanRef(req.body.language) || req.language,
-      isTrending: req.body.isTrending === "true",
-      isRecommended: req.body.isRecommended === "true",
-      isFeatured: req.body.isFeatured === "true",
+      isTrending: req.body.isTrending === true || req.body.isTrending === "true",
+      isRecommended: req.body.isRecommended === true || req.body.isRecommended === "true",
+      isFeatured: req.body.isFeatured === true || req.body.isFeatured === "true",
       status: req.body.status || "draft",
       publishedAt: req.body.status === "published" ? new Date() : null,
     });
     res.status(201).json(savedMedia);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Failed to create media", error: err.message });
+    sendError(res, err, "Failed to create media");
   }
 };
 
 // UPDATE MEDIA
 exports.updateMedia = async (req, res) => {
   try {
-    const updateData = { ...req.body };
+    // Whitelist: no author/id/timestamps/publicId from the client.
+    const updateData = pick(req.body, [
+      "title",
+      "description",
+      "duration",
+      "status",
+      "category",
+      "language",
+    ]);
 
     if (req.file) {
       const rType = resolveResourceType(req.body.type);
@@ -160,7 +174,6 @@ exports.updateMedia = async (req, res) => {
 
     if (req.body.type !== undefined) {
       updateData.mediaType = req.body.type;
-      delete updateData.type;
     }
     if (req.body.category !== undefined) {
       updateData.category = cleanRef(req.body.category);
@@ -169,13 +182,14 @@ exports.updateMedia = async (req, res) => {
       updateData.language = cleanRef(req.body.language);
     }
     if (req.body.isTrending !== undefined) {
-      updateData.isTrending = req.body.isTrending === "true";
+      updateData.isTrending = req.body.isTrending === true || req.body.isTrending === "true";
     }
     if (req.body.isRecommended !== undefined) {
-      updateData.isRecommended = req.body.isRecommended === "true";
+      updateData.isRecommended =
+        req.body.isRecommended === true || req.body.isRecommended === "true";
     }
     if (req.body.isFeatured !== undefined) {
-      updateData.isFeatured = req.body.isFeatured === "true";
+      updateData.isFeatured = req.body.isFeatured === true || req.body.isFeatured === "true";
     }
 
     const media = await mediaService.updateMedia(req.params.id, updateData);
@@ -184,7 +198,7 @@ exports.updateMedia = async (req, res) => {
     }
     res.json(withFreshUrl(media));
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -197,7 +211,7 @@ exports.deleteMedia = async (req, res) => {
     }
     res.json({ message: "Media deleted successfully" });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -207,7 +221,7 @@ exports.getLatestMedia = async (req, res) => {
     const media = await mediaService.getLatestMedia(req.language);
     res.json(media.map(withFreshUrl));
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -217,7 +231,7 @@ exports.getTrendingMedia = async (req, res) => {
     const media = await mediaService.getTrendingMedia(req.language);
     res.json(media.map(withFreshUrl));
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -227,7 +241,7 @@ exports.getFeaturedMedia = async (req, res) => {
     const media = await mediaService.getFeaturedMedia(req.language);
     res.json(media.map(withFreshUrl));
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -237,7 +251,7 @@ exports.getRecommendedMedia = async (req, res) => {
     const media = await mediaService.getRecommendedMedia(req.language);
     res.json(media.map(withFreshUrl));
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -247,6 +261,6 @@ exports.getMediaByType = async (req, res) => {
     const media = await mediaService.getMediaByType(req.params.type, req.language);
     res.json(media.map(withFreshUrl));
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };

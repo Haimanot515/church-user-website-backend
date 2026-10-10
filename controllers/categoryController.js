@@ -1,4 +1,5 @@
 const categoryService = require("../services/categoryService");
+const sendError = require("../utils/sendError");
 
 // GET ALL CATEGORIES (public — language-scoped via header)
 exports.getCategories = async (req, res) => {
@@ -6,7 +7,7 @@ exports.getCategories = async (req, res) => {
     const categories = await categoryService.getCategories(req.language);
     res.json(categories);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -19,7 +20,7 @@ exports.getCategoryById = async (req, res) => {
     }
     res.json(category);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -32,7 +33,7 @@ exports.getCategoryBySlug = async (req, res) => {
     }
     res.json(category);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -48,7 +49,10 @@ exports.createCategory = async (req, res) => {
 
     const slug = req.body.slug.toLowerCase().trim();
 
-    const existingCategory = await categoryService.findByNameAndLanguage(req.body.name, req.body.language);
+    const existingCategory = await categoryService.findByNameAndLanguage(
+      req.body.name,
+      req.body.language
+    );
     if (existingCategory) {
       return res.status(400).json({ message: "Category already exists for this language" });
     }
@@ -66,7 +70,7 @@ exports.createCategory = async (req, res) => {
     });
     res.status(201).json(savedCategory);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -80,7 +84,11 @@ exports.updateCategory = async (req, res) => {
       }
       const checkName = req.body.name || current.name;
       const checkLanguage = req.body.language || current.languageId;
-      const existingCategory = await categoryService.findConflictingName(checkName, checkLanguage, req.params.id);
+      const existingCategory = await categoryService.findConflictingName(
+        checkName,
+        checkLanguage,
+        req.params.id
+      );
       if (existingCategory) {
         return res.status(400).json({ message: "Category already exists for this language" });
       }
@@ -93,7 +101,11 @@ exports.updateCategory = async (req, res) => {
         return res.status(404).json({ message: "Category not found" });
       }
       const checkLanguage = req.body.language || current.languageId;
-      const existingSlug = await categoryService.findConflictingSlug(req.body.slug, checkLanguage, req.params.id);
+      const existingSlug = await categoryService.findConflictingSlug(
+        req.body.slug,
+        checkLanguage,
+        req.params.id
+      );
       if (existingSlug) {
         return res.status(400).json({ message: "Slug already exists for this language" });
       }
@@ -105,7 +117,7 @@ exports.updateCategory = async (req, res) => {
     }
     res.json(category);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -118,6 +130,6 @@ exports.deleteCategory = async (req, res) => {
     }
     res.json({ message: "Category deleted successfully" });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };

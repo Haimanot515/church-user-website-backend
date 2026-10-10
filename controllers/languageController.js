@@ -1,4 +1,6 @@
 const languageService = require("../services/languageService");
+const { clearLanguageCache } = require("../middleware/resolveLanguage");
+const sendError = require("../utils/sendError");
 
 // GET ALL LANGUAGES
 exports.getLanguages = async (req, res) => {
@@ -6,7 +8,7 @@ exports.getLanguages = async (req, res) => {
     const languages = await languageService.getLanguages();
     res.json(languages);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -19,7 +21,7 @@ exports.getLanguageById = async (req, res) => {
     }
     res.json(language);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -34,9 +36,10 @@ exports.createLanguage = async (req, res) => {
       name: req.body.name,
       code: req.body.code,
     });
+    clearLanguageCache();
     res.status(201).json(savedLanguage);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -44,7 +47,10 @@ exports.createLanguage = async (req, res) => {
 exports.updateLanguage = async (req, res) => {
   try {
     if (req.body.code) {
-      const existingLanguage = await languageService.findByCodeExcludingId(req.body.code, req.params.id);
+      const existingLanguage = await languageService.findByCodeExcludingId(
+        req.body.code,
+        req.params.id
+      );
       if (existingLanguage) {
         return res.status(400).json({ message: "Language code already exists" });
       }
@@ -53,9 +59,10 @@ exports.updateLanguage = async (req, res) => {
     if (!language) {
       return res.status(404).json({ message: "Language not found" });
     }
+    clearLanguageCache();
     res.json(language);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -66,8 +73,9 @@ exports.deleteLanguage = async (req, res) => {
     if (!language) {
       return res.status(404).json({ message: "Language not found" });
     }
+    clearLanguageCache();
     res.json({ message: "Language deleted successfully" });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };

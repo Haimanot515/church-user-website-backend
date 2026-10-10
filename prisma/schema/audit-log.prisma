@@ -1,0 +1,25 @@
+model AuditLog {
+  id           String   @id @default(uuid())
+  createdAt    DateTime @default(now())
+  actorId      String?
+  actorEmail   String?
+  actorRole    String?
+  action       String
+  outcome      String   @default("success")
+  severity     String   @default("info")
+  entity       String?
+  entityId     String?
+  targetUserId String?
+  diff         Json?
+  metadata     Json?
+  ipAddress    String?
+  userAgent    String?
+  sessionId    String?
+  requestId    String?
+
+  @@index([createdAt])
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+  @@index([entity, entityId])
+  @@index([targetUserId, createdAt])
+}

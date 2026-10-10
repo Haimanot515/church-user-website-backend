@@ -11,8 +11,9 @@ const includeCategoryOnly = {
 };
 
 // Mirrors: Media.find().populate("author","name").populate("category","name").populate("language","name code").sort({createdAt:-1,_id:-1})
-exports.getMedia = async () => {
+exports.getMedia = async ({ includeDrafts = false } = {}) => {
   return prisma.media.findMany({
+    where: includeDrafts ? {} : { status: "published" },
     include: includeAll,
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
   });

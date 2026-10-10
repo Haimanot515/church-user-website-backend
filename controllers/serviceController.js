@@ -1,15 +1,14 @@
 const serviceService = require("../services/serviceService");
 const cloudinary = require("../config/cloudinary");
+const sendError = require("../utils/sendError");
+const { parsePagination } = require("../utils/pagination");
 
 const uploadToCloudinary = (fileBuffer) => {
   return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      { folder: "services" },
-      (error, result) => {
-        if (error) return reject(error);
-        resolve(result);
-      }
-    );
+    const stream = cloudinary.uploader.upload_stream({ folder: "services" }, (error, result) => {
+      if (error) return reject(error);
+      resolve(result);
+    });
     stream.end(fileBuffer);
   });
 };
@@ -17,8 +16,7 @@ const uploadToCloudinary = (fileBuffer) => {
 // GET ALL SERVICES (Newest first, paginated)
 exports.getServices = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const { page, limit } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 50 });
 
     const { services, totalServices } = await serviceService.getServices({
       languageId: req.language,
@@ -34,7 +32,7 @@ exports.getServices = async (req, res) => {
       totalServices,
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -47,7 +45,7 @@ exports.getServiceById = async (req, res) => {
     }
     res.json(service);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -76,7 +74,7 @@ exports.createService = async (req, res) => {
     res.status(201).json(savedService);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Failed to create service", error: err.message });
+    sendError(res, err, "Failed to create service");
   }
 };
 
@@ -103,7 +101,7 @@ exports.updateService = async (req, res) => {
 
     res.json(updatedService);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -116,7 +114,7 @@ exports.deleteService = async (req, res) => {
     }
     res.json({ message: "Service deleted successfully" });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -126,7 +124,7 @@ exports.getFeaturedServices = async (req, res) => {
     const services = await serviceService.getFeaturedServices(req.language);
     res.json(services);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -136,6 +134,6 @@ exports.getActiveServices = async (req, res) => {
     const services = await serviceService.getActiveServices(req.language);
     res.json(services);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };

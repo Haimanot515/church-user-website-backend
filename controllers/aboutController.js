@@ -1,15 +1,13 @@
 const aboutService = require("../services/aboutService");
 const cloudinary = require("../config/cloudinary");
+const sendError = require("../utils/sendError");
 
 const uploadToCloudinary = (fileBuffer) => {
   return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      { folder: "about" },
-      (error, result) => {
-        if (error) return reject(error);
-        resolve(result);
-      }
-    );
+    const stream = cloudinary.uploader.upload_stream({ folder: "about" }, (error, result) => {
+      if (error) return reject(error);
+      resolve(result);
+    });
     stream.end(fileBuffer);
   });
 };
@@ -21,7 +19,7 @@ exports.getAbout = async (req, res) => {
     const about = await aboutService.getAbout(req.language);
     res.json(about);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -44,7 +42,7 @@ exports.createAbout = async (req, res) => {
     res.status(201).json(savedAbout);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Failed to create About section", error: err.message });
+    sendError(res, err, "Failed to create About section");
   }
 };
 
@@ -64,7 +62,7 @@ exports.updateAbout = async (req, res) => {
     res.json(about);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -76,6 +74,6 @@ exports.deleteAbout = async (req, res) => {
     if (!about) return res.status(404).json({ message: "Entry not found" });
     res.json({ message: "About entry deleted successfully" });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };

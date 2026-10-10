@@ -1,11 +1,12 @@
 const bankAccountService = require("../services/bankAccountService");
+const sendError = require("../utils/sendError");
+const { parsePagination } = require("../utils/pagination");
 
 // GET /bank-accounts?page=&limit=
 // @route   GET /api/bank-accounts
 exports.getBankAccounts = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const { page, limit } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 50 });
     const { accounts, total } = await bankAccountService.getBankAccounts({
       skip: (page - 1) * limit,
       take: limit,
@@ -17,7 +18,7 @@ exports.getBankAccounts = async (req, res) => {
       page,
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -29,7 +30,7 @@ exports.getBankAccountById = async (req, res) => {
     if (!account) return res.status(404).json({ message: "Account not found" });
     res.json(account);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -41,7 +42,7 @@ exports.createBankAccount = async (req, res) => {
     res.status(201).json(account);
   } catch (err) {
     console.error(err);
-    res.status(400).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -54,7 +55,7 @@ exports.updateBankAccount = async (req, res) => {
     res.json(account);
   } catch (err) {
     console.error(err);
-    res.status(400).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -66,6 +67,6 @@ exports.deleteBankAccount = async (req, res) => {
     if (!account) return res.status(404).json({ message: "Account not found" });
     res.json({ message: "Account deleted" });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };

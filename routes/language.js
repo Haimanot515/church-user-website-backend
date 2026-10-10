@@ -1,7 +1,7 @@
 const router = require("express").Router();
 
-const auth = require("../middleware/authMiddleware");
-const adminAuth = require("../middleware/adminMiddleware");
+const protect = require("../middleware/protect");
+const { P } = require("../config/permissions");
 
 const {
   getLanguages,
@@ -11,41 +11,20 @@ const {
   deleteLanguage,
 } = require("../controllers/languageController");
 
-
 // PUBLIC: Get all languages
 router.get("/", getLanguages);
-
 
 // PUBLIC: Get single language by ID
 // KEEP THIS LAST
 router.get("/:id", getLanguageById);
 
-
 // ADMIN ONLY: Create language
-router.post(
-  "/",
-  auth,
-  adminAuth,
-  createLanguage
-);
-
+router.post("/", ...protect(P.LANGUAGE_MANAGE, "Language"), createLanguage);
 
 // ADMIN ONLY: Update language
-router.put(
-  "/:id",
-  auth,
-  adminAuth,
-  updateLanguage
-);
-
+router.put("/:id", ...protect(P.LANGUAGE_MANAGE, "Language"), updateLanguage);
 
 // ADMIN ONLY: Delete language
-router.delete(
-  "/:id",
-  auth,
-  adminAuth,
-  deleteLanguage
-);
-
+router.delete("/:id", ...protect(P.LANGUAGE_MANAGE, "Language"), deleteLanguage);
 
 module.exports = router;

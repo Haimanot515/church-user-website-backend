@@ -1,7 +1,7 @@
 const router = require("express").Router();
 
-const auth = require("../middleware/authMiddleware");
-const adminAuth = require("../middleware/adminMiddleware");
+const protect = require("../middleware/protect");
+const { P } = require("../config/permissions");
 const upload = require("../middleware/uploadMiddleware");
 
 const {
@@ -29,10 +29,20 @@ const {
 // =========================
 
 // ADMIN: Assign priest/user to church (accepts the leader's photo)
-router.post("/assignment", auth, adminAuth, upload.single("image"), createAssignment);
+router.post(
+  "/assignment",
+  ...protect(P.CHURCH_ASSIGNMENT_MANAGE, "ChurchAssignment"),
+  upload.single("image"),
+  createAssignment
+);
 
 // ADMIN: Update an assignment (isCurrent / isPrimary / photo / etc.)
-router.put("/assignment/:id", auth, adminAuth, upload.single("image"), updateAssignment);
+router.put(
+  "/assignment/:id",
+  ...protect(P.CHURCH_ASSIGNMENT_MANAGE, "ChurchAssignment"),
+  upload.single("image"),
+  updateAssignment
+);
 
 // PUBLIC: Get all assignments
 router.get("/assignments", getAssignments);
@@ -44,7 +54,11 @@ router.get("/current", getLeadershipChurch);
 router.get("/current/:userId", getCurrentChurch);
 
 // ADMIN: Delete assignment
-router.delete("/assignment/:id", auth, adminAuth, deleteAssignment);
+router.delete(
+  "/assignment/:id",
+  ...protect(P.CHURCH_ASSIGNMENT_MANAGE, "ChurchAssignment"),
+  deleteAssignment
+);
 
 // =========================
 // CHURCH ROUTES
@@ -60,12 +74,12 @@ router.get("/", getChurches);
 router.get("/:id", getChurchById);
 
 // ADMIN: Create church
-router.post("/", auth, adminAuth, upload.single("image"), createChurch);
+router.post("/", ...protect(P.CHURCH_MANAGE, "Church"), upload.single("image"), createChurch);
 
 // ADMIN: Update church
-router.put("/:id", auth, adminAuth, upload.single("image"), updateChurch);
+router.put("/:id", ...protect(P.CHURCH_MANAGE, "Church"), upload.single("image"), updateChurch);
 
 // ADMIN: Delete church
-router.delete("/:id", auth, adminAuth, deleteChurch);
+router.delete("/:id", ...protect(P.CHURCH_MANAGE, "Church"), deleteChurch);
 
 module.exports = router;

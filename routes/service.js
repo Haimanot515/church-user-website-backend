@@ -1,6 +1,6 @@
 const router = require("express").Router();
-const auth = require("../middleware/authMiddleware");
-const adminAuth = require("../middleware/adminMiddleware");
+const protect = require("../middleware/protect");
+const { P } = require("../config/permissions");
 const upload = require("../middleware/uploadMiddleware");
 const {
   getServices,
@@ -9,7 +9,7 @@ const {
   updateService,
   deleteService,
   getFeaturedServices,
-  getActiveServices
+  getActiveServices,
 } = require("../controllers/serviceController");
 
 // PUBLIC: Get all services
@@ -26,12 +26,12 @@ router.get("/active", getActiveServices);
 router.get("/:id", getServiceById);
 
 // ADMIN ONLY: Create service
-router.post("/", auth, adminAuth, upload.single("image"), createService);
+router.post("/", ...protect(P.SERVICE_MANAGE, "Service"), upload.single("image"), createService);
 
 // ADMIN ONLY: Update service
-router.put("/:id", auth, adminAuth, upload.single("image"), updateService);
+router.put("/:id", ...protect(P.SERVICE_MANAGE, "Service"), upload.single("image"), updateService);
 
 // ADMIN ONLY: Delete service
-router.delete("/:id", auth, adminAuth, deleteService);
+router.delete("/:id", ...protect(P.SERVICE_MANAGE, "Service"), deleteService);
 
 module.exports = router;

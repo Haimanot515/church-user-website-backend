@@ -1,9 +1,8 @@
 const router = require("express").Router();
 const { createThread } = require("../controllers/contactController");
-const auth=require("../middleware/authMiddleware");
+const auth = require("../middleware/authMiddleware");
+const { contactLimiter } = require("../middleware/rateLimiters");
 
-const adminAuth=require("../middleware/adminMiddleware");
-
-router.post("/",auth,createThread);
+router.post("/", contactLimiter, auth, createThread);
 
 module.exports = router;

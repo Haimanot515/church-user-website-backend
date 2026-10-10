@@ -1,6 +1,6 @@
 const router = require("express").Router();
-const auth = require("../middleware/authMiddleware");
-const adminAuth = require("../middleware/adminMiddleware");
+const protect = require("../middleware/protect");
+const { P } = require("../config/permissions");
 const {
   getMissionVision,
   createMissionVision,
@@ -12,12 +12,12 @@ const {
 router.get("/", getMissionVision);
 
 // POST: Restricted to admin; used to create a mission or vision entry
-router.post("/", auth, adminAuth, createMissionVision);
+router.post("/", ...protect(P.MISSION_VISION_MANAGE, "MissionVision"), createMissionVision);
 
 // PUT: Restricted to admin; used to update a specific entry by ID
-router.put("/:id", auth, adminAuth, updateMissionVision);
+router.put("/:id", ...protect(P.MISSION_VISION_MANAGE, "MissionVision"), updateMissionVision);
 
 // DELETE: Restricted to admin; used to delete a specific entry by ID
-router.delete("/:id", auth, adminAuth, deleteMissionVision);
+router.delete("/:id", ...protect(P.MISSION_VISION_MANAGE, "MissionVision"), deleteMissionVision);
 
 module.exports = router;

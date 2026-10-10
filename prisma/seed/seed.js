@@ -1,6 +1,24 @@
 require("dotenv").config();
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 const prisma = require("../prisma.service");
+const { syncAccessControl } = require("../../services/accessService");
+
+// This script loads DEMO data. Never run it against production by accident.
+if (process.env.NODE_ENV === "production" && process.env.ALLOW_PRODUCTION_SEED !== "true") {
+  console.error(
+    "Refusing to seed in production. Set ALLOW_PRODUCTION_SEED=true if you really mean it."
+  );
+  process.exit(1);
+}
+
+// No hardcoded passwords: use SEED_ADMIN_PASSWORD / SEED_USER_PASSWORD, or a random one printed once.
+const resolvePassword = (envName, label) => {
+  if (process.env[envName]) return { value: process.env[envName], generated: false };
+  const value = crypto.randomBytes(12).toString("base64url") + "aA1!";
+  console.log(`Generated ${label} password (shown once): ${value}`);
+  return { value, generated: true };
+};
 
 async function main() {
   console.log("Seeding started...");
@@ -18,16 +36,23 @@ async function main() {
   });
   console.log("Languages seeded.");
 
+  await syncAccessControl();
+
   // ---------- USERS ----------
-  const hashedPassword = await bcrypt.hash("Password123!", 10);
+  const adminPassword = resolvePassword("SEED_ADMIN_PASSWORD", "admin");
+  const userPassword = resolvePassword("SEED_USER_PASSWORD", "regular user");
+  const adminEmail = (process.env.SEED_ADMIN_EMAIL || "admin@example.com").toLowerCase();
+  const hashedPassword = await bcrypt.hash(adminPassword.value, 10);
+  const hashedUserPassword = await bcrypt.hash(userPassword.value, 10);
   const adminUser = await prisma.user.upsert({
-    where: { email: "admin@example.com" },
+    where: { email: adminEmail },
     update: {},
     create: {
       name: "Admin User",
-      email: "admin@example.com",
+      email: adminEmail,
       password: hashedPassword,
       isAdmin: true,
+      accessRole: { connect: { name: "super_admin" } },
       isVerified: true,
     },
   });
@@ -37,8 +62,9 @@ async function main() {
     create: {
       name: "Regular User",
       email: "user@example.com",
-      password: hashedPassword,
+      password: hashedUserPassword,
       isAdmin: false,
+      accessRole: { connect: { name: "user" } },
       isVerified: true,
     },
   });

@@ -1,5 +1,6 @@
 const churchPersonService = require("../services/churchPersonService");
 const cloudinary = require("../config/cloudinary");
+const sendError = require("../utils/sendError");
 
 const uploadToCloudinary = (fileBuffer) => {
   return new Promise((resolve, reject) => {
@@ -15,19 +16,20 @@ const uploadToCloudinary = (fileBuffer) => {
 };
 
 const uploadMultipleToCloudinary = async (files) => {
-  const uploads = await Promise.all(
-    files.map((file) => uploadToCloudinary(file.buffer))
-  );
+  const uploads = await Promise.all(files.map((file) => uploadToCloudinary(file.buffer)));
   return uploads.map((result) => result.secure_url);
 };
 
 // GET: Fetch ALL Church Persons for the current language
 exports.getChurchPersons = async (req, res) => {
   try {
-    const churchPersons = await churchPersonService.getChurchPersons(req.language, req.query.category);
+    const churchPersons = await churchPersonService.getChurchPersons(
+      req.language,
+      req.query.category
+    );
     res.json(churchPersons);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -40,7 +42,7 @@ exports.getChurchPersonById = async (req, res) => {
     }
     res.json(churchPerson);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -66,7 +68,7 @@ exports.createChurchPerson = async (req, res) => {
     res.status(201).json(savedChurchPerson);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Failed to create church person", error: err.message });
+    sendError(res, err, "Failed to create church person");
   }
 };
 
@@ -99,7 +101,7 @@ exports.updateChurchPerson = async (req, res) => {
     res.json(updatedChurchPerson);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -114,7 +116,7 @@ exports.removeChurchPersonPhoto = async (req, res) => {
     res.json(updated);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -127,6 +129,6 @@ exports.deleteChurchPerson = async (req, res) => {
     }
     res.json({ message: "Church person deleted successfully" });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };

@@ -1,6 +1,6 @@
 const router = require("express").Router();
-const auth = require("../middleware/authMiddleware");
-const adminAuth = require("../middleware/adminMiddleware");
+const protect = require("../middleware/protect");
+const { P } = require("../config/permissions");
 const {
   getFaq,
   getFaqCategories,
@@ -19,12 +19,12 @@ router.get("/categories", getFaqCategories);
 router.get("/", getFaq);
 
 // POST: Restricted to admin; used to create a new FAQ entry
-router.post("/", auth, adminAuth, createFaq);
+router.post("/", ...protect(P.FAQ_MANAGE, "Faq"), createFaq);
 
 // PUT: Restricted to admin; used to update a specific FAQ entry by ID
-router.put("/:id", auth, adminAuth, updateFaq);
+router.put("/:id", ...protect(P.FAQ_MANAGE, "Faq"), updateFaq);
 
 // DELETE: Restricted to admin; used to delete a specific FAQ entry by ID
-router.delete("/:id", auth, adminAuth, deleteFaq);
+router.delete("/:id", ...protect(P.FAQ_MANAGE, "Faq"), deleteFaq);
 
 module.exports = router;

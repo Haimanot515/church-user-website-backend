@@ -1,107 +1,63 @@
 require("dotenv").config();
-const express = require("express");
-const cors = require("cors");
-const cookieParser = require("cookie-parser");
-const path = require("path");
+
+const { validateEnv } = require("./config/env");
+validateEnv();
+
+const app = require("./app");
 const prisma = require("./prisma/prisma.service");
+const { syncAccessControl } = require("./services/accessService");
+const { purgeExpired } = require("./services/sessionService");
 
-// --- Standard Routes ---
-const authRoutes = require("./routes/auth");
-const postRoutes = require("./routes/post");
-const mediaRoutes = require("./routes/media");
-const languageRoutes = require("./routes/language");
-const categoryRoutes = require("./routes/category");
-const contactRoutes = require("./routes/contact");
-const aboutRoutes = require("./routes/about");
-const promotionRoutes = require("./routes/promotion");
-const subscriberRoutes = require("./routes/subscriber");
-const churchRoutes = require("./routes/church");
-const churchStoryRoutes = require("./routes/churchStory");
-const missionVisionRoutes = require("./routes/mission-vision");
-const bankAccountRoutes = require("./routes/bankAccount");
-const serviceRoutes = require("./routes/service");
-const faqRoutes = require("./routes/faq");
-const adminRoutes = require("./routes/admin");
-const churchPersonRoutes = require("./routes/churchPerson");
-const homeHeroRoutes = require("./routes/homeHero");
-const landingRoutes = require("./routes/landingHero");
+const PORT = process.env.PORT || 5000;
+let server;
+const SESSION_PURGE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
-const resolveLanguage = require("./middleware/resolveLanguage");
-
-const app = express();
-
-app.use(
-  cors({
-    origin: [
-      process.env.CLIENT_URL,
-      "http://localhost:5176",
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "https://church-website-admin.onrender.com",
-      "https://my-portfolio-l9o0.onrender.com",
-      "https://church-user-website-frontend.onrender.com"
-    ],
-    credentials: true,
-  })
-);
-
-app.use(express.json());
-app.use(cookieParser());
-app.use(resolveLanguage);
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
-const startServer = async () => {
+const start = async () => {
   try {
-    // Connect to Postgres via Prisma
     await prisma.connect();
-
-    app.use("/api/auth", authRoutes);
-    app.use("/api/landingheros", landingRoutes);
-    app.use("/api/posts", postRoutes);
-    app.use("/api/media", mediaRoutes);
-    app.use("/api/languages", languageRoutes);
-    app.use("/api/categories", categoryRoutes);
-    app.use("/api/contact", contactRoutes);
-    app.use("/api/about", aboutRoutes);
-    app.use("/api/promotions", promotionRoutes);
-    app.use("/api/subscribers", subscriberRoutes);
-    app.use("/api/churches", churchRoutes);
-    app.use("/api/church-story", churchStoryRoutes);
-    app.use("/api/mission-vision", missionVisionRoutes);
-    app.use("/api/bank-accounts", bankAccountRoutes);
-    app.use("/api/services", serviceRoutes);
-    app.use("/api/faq", faqRoutes);
-    app.use("/api/admin", adminRoutes);
-    app.use("/api/church-persons", churchPersonRoutes);
-    app.use("/api/homeheros", homeHeroRoutes);
-
-    app.get("/", (req, res) => {
-      res.send("Portfolio Backend is running!");
-    });
-
-    if (process.env.NODE_ENV === "production") {
-      app.use(express.static(path.join(__dirname, "client/build")));
-    }
-
-    app.use((req, res) => {
-      res.status(404).json({
-        message: `Route ${req.originalUrl} not found. Check if /api prefix or plural 's' is missing.`
-      });
-    });
-
-    app.use((err, req, res, next) => {
-      console.error(err.stack);
-      res.status(500).json({ message: "Server error" });
-    });
-
-    const PORT = process.env.PORT || 5000;
-    app.listen(PORT, '0.0.0.0', () =>
-      console.log(`🚀 Server running on port ${PORT}`)
-    );
+    await syncAccessControl();
+    await purgeExpired();
+    setInterval(
+      () => purgeExpired().catch((err) => console.error("Session purge failed:", err.message)),
+      SESSION_PURGE_INTERVAL_MS
+    ).unref();
+    server = app.listen(PORT, "0.0.0.0", () => console.log(`🚀 Server running on port ${PORT}`));
+    // Keep-alive slightly above typical proxy timeouts to avoid sporadic 502s.
+    server.keepAliveTimeout = 65 * 1000;
+    server.headersTimeout = 66 * 1000;
   } catch (err) {
     console.error("❌ Server startup error:", err);
     process.exit(1);
   }
 };
 
-startServer();
+// Graceful shutdown: stop accepting connections, finish in-flight requests, close the DB pool.
+let shuttingDown = false;
+const shutdown = async (signal) => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`${signal} received, shutting down...`);
+
+  const forceExit = setTimeout(() => {
+    console.error("Forced shutdown after timeout");
+    process.exit(1);
+  }, 10000);
+  forceExit.unref();
+
+  try {
+    if (server) await new Promise((resolve) => server.close(resolve));
+    await prisma.$disconnect();
+    process.exit(0);
+  } catch (err) {
+    console.error("Error during shutdown:", err);
+    process.exit(1);
+  }
+};
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled promise rejection:", reason);
+});
+
+start();

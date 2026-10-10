@@ -1,15 +1,20 @@
 const postService = require("../services/postService");
+const { hasPermission } = require("../utils/access");
+const { P } = require("../config/permissions");
 const cloudinary = require("../config/cloudinary");
+const sendError = require("../utils/sendError");
+const pick = require("../utils/pick");
+const { parsePagination } = require("../utils/pagination");
+
+const STATUSES = ["draft", "published"];
+const bool = (v) => v === true || v === "true";
 
 const uploadToCloudinary = (fileBuffer) => {
   return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      { folder: "posts" },
-      (error, result) => {
-        if (error) return reject(error);
-        resolve(result);
-      }
-    );
+    const stream = cloudinary.uploader.upload_stream({ folder: "posts" }, (error, result) => {
+      if (error) return reject(error);
+      resolve(result);
+    });
     stream.end(fileBuffer);
   });
 };
@@ -17,13 +22,14 @@ const uploadToCloudinary = (fileBuffer) => {
 // GET ALL POSTS (Newest first, paginated)
 exports.getPosts = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 50 });
 
     let categoryId;
     if (req.query.categorySlug) {
-      const categoryDoc = await postService.findCategoryBySlug(req.query.categorySlug, req.language);
+      const categoryDoc = await postService.findCategoryBySlug(
+        req.query.categorySlug,
+        req.language
+      );
       if (categoryDoc) {
         categoryId = categoryDoc.id;
       } else {
@@ -50,7 +56,7 @@ exports.getPosts = async (req, res) => {
       totalPosts,
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -58,18 +64,23 @@ exports.getPosts = async (req, res) => {
 exports.getPostById = async (req, res) => {
   try {
     const post = await postService.getPostById(req.params.id);
-    if (!post) {
+    // Drafts are only visible to admins.
+    const admin = hasPermission(req.user, P.POST_MANAGE);
+    if (!post || (post.status !== "published" && !admin)) {
       return res.status(404).json({ message: "Post not found" });
     }
     res.json(post);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
 // CREATE POST
 exports.createPost = async (req, res) => {
   try {
+    if (req.body.status !== undefined && !STATUSES.includes(req.body.status)) {
+      return res.status(400).json({ message: "status must be 'draft' or 'published'." });
+    }
     let imageUrl = "";
     if (req.file) {
       const result = await uploadToCloudinary(req.file.buffer);
@@ -83,40 +94,41 @@ exports.createPost = async (req, res) => {
       author: req.user.id,
       category: req.body.category,
       language: req.body.language,
-      isTrending: req.body.isTrending === "true",
-      isRecommended: req.body.isRecommended === "true",
-      isFeatured: req.body.isFeatured === "true",
+      isTrending: bool(req.body.isTrending),
+      isRecommended: bool(req.body.isRecommended),
+      isFeatured: bool(req.body.isFeatured),
       status: req.body.status || "draft",
       publishedAt: req.body.status === "published" ? new Date() : null,
     });
     res.status(201).json(savedPost);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Failed to create post", error: err.message });
+    sendError(res, err, "Failed to create post");
   }
 };
 
 // UPDATE POST
 exports.updatePost = async (req, res) => {
   try {
-    let imageUrl = "";
+    // Whitelist editable fields (no author/id/timestamps from the client).
+    const updateData = pick(req.body, [
+      "title",
+      "description",
+      "content",
+      "category",
+      "language",
+      "status",
+    ]);
+    if (updateData.status !== undefined && !STATUSES.includes(updateData.status)) {
+      return res.status(400).json({ message: "status must be 'draft' or 'published'." });
+    }
     if (req.file) {
       const result = await uploadToCloudinary(req.file.buffer);
-      imageUrl = result.secure_url;
+      updateData.imageUrl = result.secure_url;
     }
-    const updateData = {
-      ...req.body,
-      ...(imageUrl && { imageUrl }),
-      updatedAt: new Date(),
-    };
-    if (req.body.isTrending !== undefined) {
-      updateData.isTrending = req.body.isTrending === "true";
-    }
-    if (req.body.isRecommended !== undefined) {
-      updateData.isRecommended = req.body.isRecommended === "true";
-    }
-    if (req.body.isFeatured !== undefined) {
-      updateData.isFeatured = req.body.isFeatured === "true";
+    updateData.updatedAt = new Date();
+    for (const flag of ["isTrending", "isRecommended", "isFeatured"]) {
+      if (req.body[flag] !== undefined) updateData[flag] = bool(req.body[flag]);
     }
 
     const post = await postService.updatePost(req.params.id, updateData);
@@ -125,7 +137,7 @@ exports.updatePost = async (req, res) => {
     }
     res.json(post);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -138,7 +150,7 @@ exports.deletePost = async (req, res) => {
     }
     res.json({ message: "Post deleted successfully" });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -148,7 +160,7 @@ exports.getLatestPosts = async (req, res) => {
     const posts = await postService.getLatestPosts(req.language);
     res.json(posts);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -158,7 +170,7 @@ exports.getTrendingPosts = async (req, res) => {
     const posts = await postService.getTrendingPosts(req.language);
     res.json(posts);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -168,7 +180,7 @@ exports.getRecommendedPosts = async (req, res) => {
     const posts = await postService.getRecommendedPosts(req.language);
     res.json(posts);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -178,6 +190,6 @@ exports.getFeaturedPosts = async (req, res) => {
     const posts = await postService.getFeaturedPosts(req.language);
     res.json(posts);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };

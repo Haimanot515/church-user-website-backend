@@ -7,7 +7,7 @@ const cloudinary = require("../config/cloudinary");
 const uploadToCloudinary = (fileBuffer) => {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
-      { folder: "portfolio", resource_type: "auto" },
+      { folder: "landing", resource_type: "auto" },
       (error, result) => {
         if (error) return reject(error);
         resolve(result.secure_url);
@@ -20,13 +20,25 @@ const uploadToCloudinary = (fileBuffer) => {
 /* ===============================
    Utility: Clean Undefined + Empty
 ================================= */
+const LANDING_FIELDS = [
+  "title",
+  "description",
+  "missionTitle",
+  "missionDescription",
+  "personalBio",
+  "awards",
+  "tutorialDesc",
+  "lifestyleDesc",
+];
+
 const cleanData = (data) => {
+  const allowed = Object.fromEntries(
+    Object.entries(data || {}).filter(([key]) => LANDING_FIELDS.includes(key))
+  );
   return Object.fromEntries(
-    Object.entries(data).filter(
+    Object.entries(allowed).filter(
       ([_, value]) =>
-        value !== undefined &&
-        value !== null &&
-        !(typeof value === "string" && value.trim() === "")
+        value !== undefined && value !== null && !(typeof value === "string" && value.trim() === "")
     )
   );
 };
@@ -39,7 +51,8 @@ exports.getLanding = async (req, res) => {
     const landing = await landingHeroService.getLanding();
     res.json(landing || {});
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch portfolio data" });
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch landing data" });
   }
 };
 
@@ -48,7 +61,7 @@ exports.getLanding = async (req, res) => {
 ================================= */
 exports.updateHero = async (req, res) => {
   try {
-    let updateData = cleanData(req.body);
+    const updateData = cleanData(req.body);
     updateData.updatedAt = new Date();
 
     if (req.files?.heroImage) {
@@ -61,6 +74,7 @@ exports.updateHero = async (req, res) => {
     const landing = await landingHeroService.upsertLanding(updateData);
     res.json(landing);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Failed to update hero and campus" });
   }
 };
@@ -70,7 +84,7 @@ exports.updateHero = async (req, res) => {
 ================================= */
 exports.updateAcademic = async (req, res) => {
   try {
-    let updateData = cleanData(req.body);
+    const updateData = cleanData(req.body);
     updateData.updatedAt = new Date();
 
     if (req.file) {
@@ -80,6 +94,7 @@ exports.updateAcademic = async (req, res) => {
     const landing = await landingHeroService.upsertLanding(updateData);
     res.json(landing);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Failed to update academic" });
   }
 };
@@ -89,14 +104,16 @@ exports.updateAcademic = async (req, res) => {
 ================================= */
 exports.updateVideos = async (req, res) => {
   try {
-    let updateData = cleanData(req.body);
+    const updateData = cleanData(req.body);
     updateData.updatedAt = new Date();
 
     if (req.files?.mainShowcaseFile) {
       updateData.mainShowcaseId = await uploadToCloudinary(req.files.mainShowcaseFile[0].buffer);
     }
     if (req.files?.selectedProjectFile) {
-      updateData.selectedProjectId = await uploadToCloudinary(req.files.selectedProjectFile[0].buffer);
+      updateData.selectedProjectId = await uploadToCloudinary(
+        req.files.selectedProjectFile[0].buffer
+      );
     }
     if (req.files?.architectureFile) {
       updateData.architectureId = await uploadToCloudinary(req.files.architectureFile[0].buffer);
@@ -108,6 +125,7 @@ exports.updateVideos = async (req, res) => {
     const landing = await landingHeroService.upsertLanding(updateData);
     res.json(landing);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Failed to update videos" });
   }
 };
@@ -117,7 +135,7 @@ exports.updateVideos = async (req, res) => {
 ================================= */
 exports.updateLifestyle = async (req, res) => {
   try {
-    let updateData = cleanData(req.body);
+    const updateData = cleanData(req.body);
     updateData.updatedAt = new Date();
 
     if (req.files?.tutorialImage) {
@@ -130,6 +148,7 @@ exports.updateLifestyle = async (req, res) => {
     const landing = await landingHeroService.upsertLanding(updateData);
     res.json(landing);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Failed to update lifestyle" });
   }
 };

@@ -1,15 +1,13 @@
 const promotionService = require("../services/promotionService");
 const cloudinary = require("../config/cloudinary");
+const sendError = require("../utils/sendError");
 
 const uploadToCloudinary = (fileBuffer) => {
   return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      { folder: "promotion" },
-      (error, result) => {
-        if (error) return reject(error);
-        resolve(result);
-      }
-    );
+    const stream = cloudinary.uploader.upload_stream({ folder: "promotion" }, (error, result) => {
+      if (error) return reject(error);
+      resolve(result);
+    });
     stream.end(fileBuffer);
   });
 };
@@ -22,7 +20,7 @@ exports.getLatestPromotion = async (req, res) => {
     }
     res.json(promotion);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -32,7 +30,7 @@ exports.getPromotion = async (req, res) => {
     const promotions = await promotionService.getPromotion(req.language);
     res.json(promotions);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -45,7 +43,7 @@ exports.getPromotionById = async (req, res) => {
     }
     res.json(promotion);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -66,7 +64,7 @@ exports.createPromotion = async (req, res) => {
     res.status(201).json(savedPromotion);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Failed to create Promotion section", error: err.message });
+    sendError(res, err, "Failed to create Promotion section");
   }
 };
 
@@ -85,7 +83,7 @@ exports.updatePromotion = async (req, res) => {
     res.json(promotion);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -98,6 +96,6 @@ exports.deletePromotion = async (req, res) => {
     }
     res.json({ message: "Promotion deleted successfully" });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };

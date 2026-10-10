@@ -6,13 +6,10 @@ const cloudinary = require("../config/cloudinary");
 
 const uploadToCloudinary = (fileBuffer) => {
   return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      { folder: "churches" },
-      (error, result) => {
-        if (error) return reject(error);
-        resolve(result);
-      }
-    );
+    const stream = cloudinary.uploader.upload_stream({ folder: "churches" }, (error, result) => {
+      if (error) return reject(error);
+      resolve(result);
+    });
     stream.end(fileBuffer);
   });
 };
@@ -34,7 +31,10 @@ const handleError = (res, err) => {
     }
   }
 
-  if (status === 500) console.error(err);
+  if (status === 500) {
+    console.error(err);
+    message = "Server error";
+  }
   return res.status(status).json({ message });
 };
 
@@ -181,8 +181,7 @@ exports.createAssignment = async (req, res) => {
       return res.status(400).json({ message: "user and church are required" });
     }
 
-    const isCurrent =
-      req.body.isCurrent !== undefined ? toBool(req.body.isCurrent) : true;
+    const isCurrent = req.body.isCurrent !== undefined ? toBool(req.body.isCurrent) : true;
     const isPrimary = toBool(req.body.isPrimary);
 
     let image = "";

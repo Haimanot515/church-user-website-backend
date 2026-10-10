@@ -1,4 +1,5 @@
 const missionVisionService = require("../services/missionVisionService");
+const sendError = require("../utils/sendError");
 
 // @desc    Get MissionVision entries for the current language (Newest First)
 // @route   GET /api/mission-vision
@@ -7,7 +8,7 @@ exports.getMissionVision = async (req, res) => {
     const missionVision = await missionVisionService.getMissionVision(req.language);
     res.json(missionVision);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -25,7 +26,7 @@ exports.createMissionVision = async (req, res) => {
     res.status(201).json(savedMissionVision);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Failed to create MissionVision entry", error: err.message });
+    sendError(res, err, "Failed to create MissionVision entry");
   }
 };
 
@@ -40,7 +41,7 @@ exports.updateMissionVision = async (req, res) => {
     res.json(missionVision);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -52,6 +53,6 @@ exports.deleteMissionVision = async (req, res) => {
     if (!missionVision) return res.status(404).json({ message: "Entry not found" });
     res.json({ message: "MissionVision entry deleted successfully" });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };

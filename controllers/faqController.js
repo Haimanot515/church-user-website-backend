@@ -1,4 +1,5 @@
 const faqService = require("../services/faqService");
+const sendError = require("../utils/sendError");
 
 // @desc    Get FAQ entries for the current language (Newest First)
 // @route   GET /api/faq
@@ -7,7 +8,7 @@ exports.getFaq = async (req, res) => {
     const faq = await faqService.getFaq(req.language, req.query.category);
     res.json(faq);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -18,7 +19,7 @@ exports.getFaqCategories = async (req, res) => {
     const categories = faqService.getFaqCategories();
     res.json(categories);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -36,7 +37,7 @@ exports.createFaq = async (req, res) => {
     res.status(201).json(savedFaq);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Failed to create FAQ entry", error: err.message });
+    sendError(res, err, "Failed to create FAQ entry");
   }
 };
 
@@ -51,7 +52,7 @@ exports.updateFaq = async (req, res) => {
     res.json(faq);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -63,6 +64,6 @@ exports.deleteFaq = async (req, res) => {
     if (!faq) return res.status(404).json({ message: "Entry not found" });
     res.json({ message: "FAQ entry deleted successfully" });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };

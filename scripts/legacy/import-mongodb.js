@@ -1,17 +1,12 @@
-require("dotenv").config();
+require("dotenv").config({ path: require("path").join(__dirname, "../../.env") });
 
 const fs = require("fs");
 const path = require("path");
 const { deserialize } = require("bson");
 
-const prisma = require("./prisma/prisma.service");
+const prisma = require("../../prisma/prisma.service");
 
-const BACKUP_DIR = path.join(
-  process.env.HOME,
-  "Desktop",
-  "mongodb-backup",
-  "test"
-);
+const BACKUP_DIR = path.join(process.env.HOME, "Desktop", "mongodb-backup", "test");
 
 // ─────────────────────────────────────────────
 // Mongo → PostgreSQL ID maps
@@ -129,20 +124,13 @@ function containsAmharic(value) {
 }
 
 function detectLanguageFromText(...values) {
-  const text = values
-    .filter((v) => v !== undefined && v !== null)
-    .join(" ");
+  const text = values.filter((v) => v !== undefined && v !== null).join(" ");
 
   return containsAmharic(text) ? "AM" : "EN";
 }
 
 function getLanguageMongoId(doc) {
-  return mongoId(
-    doc.language ||
-      doc.languageId ||
-      doc.lang ||
-      null
-  );
+  return mongoId(doc.language || doc.languageId || doc.lang || null);
 }
 
 function resolveLanguage(doc, ...textFields) {
@@ -154,17 +142,13 @@ function resolveLanguage(doc, ...textFields) {
 
   const code = detectLanguageFromText(...textFields);
 
-  const fallback = [...maps.language.values()].find(
-    (value) => value.code === code
-  );
+  const fallback = [...maps.language.values()].find((value) => value.code === code);
 
   if (fallback) {
     return fallback.id;
   }
 
-  const english = [...maps.language.values()].find(
-    (value) => value.code === "EN"
-  );
+  const english = [...maps.language.values()].find((value) => value.code === "EN");
 
   return english ? english.id : null;
 }
@@ -197,20 +181,11 @@ function readBsonCollection(collection) {
 
     const size = buffer.readInt32LE(offset);
 
-    if (
-      !Number.isInteger(size) ||
-      size < 5 ||
-      offset + size > buffer.length
-    ) {
-      throw new Error(
-        `Invalid BSON document in ${collection}.bson at offset ${offset}`
-      );
+    if (!Number.isInteger(size) || size < 5 || offset + size > buffer.length) {
+      throw new Error(`Invalid BSON document in ${collection}.bson at offset ${offset}`);
     }
 
-    const documentBuffer = buffer.subarray(
-      offset,
-      offset + size
-    );
+    const documentBuffer = buffer.subarray(offset, offset + size);
 
     docs.push(deserialize(documentBuffer));
 
@@ -235,10 +210,7 @@ async function importOne(name, fn) {
   } catch (error) {
     failed(name);
 
-    console.error(
-      `\n❌ ${name} failed:`,
-      error.message
-    );
+    console.error(`\n❌ ${name} failed:`, error.message);
   }
 }
 
@@ -278,9 +250,7 @@ async function importLanguages() {
     } catch (error) {
       failed(collection);
 
-      console.error(
-        `❌ Language ${oldId}: ${error.message}`
-      );
+      console.error(`❌ Language ${oldId}: ${error.message}`);
     }
   }
 }
@@ -310,6 +280,7 @@ async function importUsers() {
           password: stringOrEmpty(doc.password),
           role: stringOrEmpty(doc.role || "user"),
           isAdmin: bool(doc.isAdmin),
+          accessRole: { connect: { name: bool(doc.isAdmin) ? "super_admin" : "user" } },
           isVerified: bool(doc.isVerified),
           createdAt: date(doc.createdAt),
           updatedAt: date(doc.updatedAt),
@@ -322,9 +293,7 @@ async function importUsers() {
     } catch (error) {
       failed(collection);
 
-      console.error(
-        `❌ User ${oldId} (${doc.email}): ${error.message}`
-      );
+      console.error(`❌ User ${oldId} (${doc.email}): ${error.message}`);
     }
   }
 }
@@ -354,19 +323,10 @@ async function importCategories() {
     }
 
     try {
-      let languageId = resolveLanguage(
-        doc,
-        doc.name,
-        doc.description
-      );
+      let languageId = resolveLanguage(doc, doc.name, doc.description);
 
-      if (
-        legacyAmharic[oldId] &&
-        !getLanguageMongoId(doc)
-      ) {
-        const amharic = [...maps.language.values()].find(
-          (x) => x.code === "AM"
-        );
+      if (legacyAmharic[oldId] && !getLanguageMongoId(doc)) {
+        const amharic = [...maps.language.values()].find((x) => x.code === "AM");
 
         if (amharic) {
           languageId = amharic.id;
@@ -408,9 +368,7 @@ async function importCategories() {
     } catch (error) {
       failed(collection);
 
-      console.error(
-        `❌ Category ${oldId} (${doc.name}): ${error.message}`
-      );
+      console.error(`❌ Category ${oldId} (${doc.name}): ${error.message}`);
     }
   }
 }
@@ -449,9 +407,7 @@ async function importChurches() {
         data: {
           churchName: stringOrEmpty(doc.churchName),
           description: stringOrEmpty(doc.description),
-          shortDescription: stringOrEmpty(
-            doc.shortDescription
-          ),
+          shortDescription: stringOrEmpty(doc.shortDescription),
           history: stringOrEmpty(doc.history),
           image: stringOrEmpty(doc.image),
           address: stringOrEmpty(doc.address),
@@ -471,9 +427,7 @@ async function importChurches() {
     } catch (error) {
       failed(collection);
 
-      console.error(
-        `❌ Church ${oldId}: ${error.message}`
-      );
+      console.error(`❌ Church ${oldId}: ${error.message}`);
     }
   }
 }
@@ -489,13 +443,7 @@ async function importChurchPeople() {
     seen(collection);
 
     try {
-      const languageId = resolveLanguage(
-        doc,
-        doc.name,
-        doc.title,
-        doc.description,
-        doc.message
-      );
+      const languageId = resolveLanguage(doc, doc.name, doc.title, doc.description, doc.message);
 
       if (!languageId) {
         throw new Error("Could not resolve language");
@@ -504,9 +452,7 @@ async function importChurchPeople() {
       await prisma.churchPerson.create({
         data: {
           name: stringOrNull(doc.name),
-          photos: Array.isArray(doc.photos)
-            ? doc.photos.map(String)
-            : [],
+          photos: Array.isArray(doc.photos) ? doc.photos.map(String) : [],
           title: stringOrNull(doc.title),
           description: stringOrNull(doc.description),
           role: stringOrNull(doc.role),
@@ -522,9 +468,7 @@ async function importChurchPeople() {
     } catch (error) {
       failed(collection);
 
-      console.error(
-        `❌ ChurchPerson ${mongoId(doc._id)}: ${error.message}`
-      );
+      console.error(`❌ ChurchPerson ${mongoId(doc._id)}: ${error.message}`);
     }
   }
 }
@@ -574,9 +518,7 @@ async function importChurchStories() {
     } catch (error) {
       failed(collection);
 
-      console.error(
-        `❌ ChurchStory ${mongoId(doc._id)}: ${error.message}`
-      );
+      console.error(`❌ ChurchStory ${mongoId(doc._id)}: ${error.message}`);
     }
   }
 }
@@ -628,9 +570,7 @@ async function importHomeHeroes() {
     } catch (error) {
       failed(collection);
 
-      console.error(
-        `❌ HomeHero ${mongoId(doc._id)}: ${error.message}`
-      );
+      console.error(`❌ HomeHero ${mongoId(doc._id)}: ${error.message}`);
     }
   }
 }
@@ -646,25 +586,15 @@ async function importFaqs() {
     seen(collection);
 
     try {
-      const languageId = resolveLanguage(
-        doc,
-        doc.question,
-        doc.answer
-      );
+      const languageId = resolveLanguage(doc, doc.question, doc.answer);
 
       if (!languageId) {
         throw new Error("Could not resolve language");
       }
 
-      const validCategories = [
-        "Information",
-        "Faith",
-        "Contact",
-      ];
+      const validCategories = ["Information", "Faith", "Contact"];
 
-      const category = validCategories.includes(doc.category)
-        ? doc.category
-        : "Information";
+      const category = validCategories.includes(doc.category) ? doc.category : "Information";
 
       await prisma.faq.create({
         data: {
@@ -682,9 +612,7 @@ async function importFaqs() {
     } catch (error) {
       failed(collection);
 
-      console.error(
-        `❌ FAQ ${mongoId(doc._id)}: ${error.message}`
-      );
+      console.error(`❌ FAQ ${mongoId(doc._id)}: ${error.message}`);
     }
   }
 }
@@ -700,20 +628,13 @@ async function importMissionVisions() {
     seen(collection);
 
     try {
-      const languageId = resolveLanguage(
-        doc,
-        doc.title,
-        doc.desc
-      );
+      const languageId = resolveLanguage(doc, doc.title, doc.desc);
 
       if (!languageId) {
         throw new Error("Could not resolve language");
       }
 
-      const type =
-        doc.type === "vision"
-          ? "vision"
-          : "mission";
+      const type = doc.type === "vision" ? "vision" : "mission";
 
       await prisma.missionVision.create({
         data: {
@@ -731,9 +652,7 @@ async function importMissionVisions() {
     } catch (error) {
       failed(collection);
 
-      console.error(
-        `❌ MissionVision ${mongoId(doc._id)}: ${error.message}`
-      );
+      console.error(`❌ MissionVision ${mongoId(doc._id)}: ${error.message}`);
     }
   }
 }
@@ -749,11 +668,7 @@ async function importPromotions() {
     seen(collection);
 
     try {
-      const languageId = resolveLanguage(
-        doc,
-        doc.title,
-        doc.description
-      );
+      const languageId = resolveLanguage(doc, doc.title, doc.description);
 
       if (!languageId) {
         throw new Error("Could not resolve language");
@@ -774,9 +689,7 @@ async function importPromotions() {
     } catch (error) {
       failed(collection);
 
-      console.error(
-        `❌ Promotion ${mongoId(doc._id)}: ${error.message}`
-      );
+      console.error(`❌ Promotion ${mongoId(doc._id)}: ${error.message}`);
     }
   }
 }
@@ -799,10 +712,7 @@ async function importServices() {
     "Other",
   ];
 
-  const validStatuses = [
-    "active",
-    "inactive",
-  ];
+  const validStatuses = ["active", "inactive"];
 
   for (const doc of docs(collection)) {
     seen(collection);
@@ -855,9 +765,7 @@ async function importServices() {
     } catch (error) {
       failed(collection);
 
-      console.error(
-        `❌ Service ${mongoId(doc._id)}: ${error.message}`
-      );
+      console.error(`❌ Service ${mongoId(doc._id)}: ${error.message}`);
     }
   }
 }
@@ -867,11 +775,7 @@ async function importServices() {
 // ─────────────────────────────────────────────
 
 function isPortfolioAbout(doc) {
-  const text = [
-    doc.title,
-    doc.churchLeader,
-    doc.description,
-  ]
+  const text = [doc.title, doc.churchLeader, doc.description]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
@@ -889,9 +793,7 @@ function isPortfolioAbout(doc) {
     "innovation at addis",
   ];
 
-  return portfolioPatterns.some((pattern) =>
-    text.includes(pattern)
-  );
+  return portfolioPatterns.some((pattern) => text.includes(pattern));
 }
 
 async function importAbouts() {
@@ -903,20 +805,13 @@ async function importAbouts() {
     if (isPortfolioAbout(doc)) {
       skipped(collection);
 
-      console.log(
-        `⏭ Skipping portfolio About: ${doc.title || "(untitled)"}`
-      );
+      console.log(`⏭ Skipping portfolio About: ${doc.title || "(untitled)"}`);
 
       continue;
     }
 
     try {
-      const languageId = resolveLanguage(
-        doc,
-        doc.title,
-        doc.churchLeader,
-        doc.description
-      );
+      const languageId = resolveLanguage(doc, doc.title, doc.churchLeader, doc.description);
 
       if (!languageId) {
         throw new Error("Could not resolve language");
@@ -938,9 +833,7 @@ async function importAbouts() {
     } catch (error) {
       failed(collection);
 
-      console.error(
-        `❌ About ${mongoId(doc._id)}: ${error.message}`
-      );
+      console.error(`❌ About ${mongoId(doc._id)}: ${error.message}`);
     }
   }
 }
@@ -971,9 +864,7 @@ async function importBankAccounts() {
     } catch (error) {
       failed(collection);
 
-      console.error(
-        `❌ BankAccount ${mongoId(doc._id)}: ${error.message}`
-      );
+      console.error(`❌ BankAccount ${mongoId(doc._id)}: ${error.message}`);
     }
   }
 }
@@ -1001,9 +892,7 @@ async function importContacts() {
     } catch (error) {
       failed(collection);
 
-      console.error(
-        `❌ Contact ${mongoId(doc._id)}: ${error.message}`
-      );
+      console.error(`❌ Contact ${mongoId(doc._id)}: ${error.message}`);
     }
   }
 }
@@ -1022,16 +911,9 @@ async function importSubscribers() {
       await prisma.subscriber.create({
         data: {
           email: stringOrNull(doc.email),
-          active:
-            doc.active === undefined
-              ? null
-              : bool(doc.active),
-          subscribedAt: doc.subscribedAt
-            ? date(doc.subscribedAt)
-            : null,
-          unsubscribedAt: doc.unsubscribedAt
-            ? date(doc.unsubscribedAt)
-            : null,
+          active: doc.active === undefined ? null : bool(doc.active),
+          subscribedAt: doc.subscribedAt ? date(doc.subscribedAt) : null,
+          unsubscribedAt: doc.unsubscribedAt ? date(doc.unsubscribedAt) : null,
         },
       });
 
@@ -1039,9 +921,7 @@ async function importSubscribers() {
     } catch (error) {
       failed(collection);
 
-      console.error(
-        `❌ Subscriber ${mongoId(doc._id)}: ${error.message}`
-      );
+      console.error(`❌ Subscriber ${mongoId(doc._id)}: ${error.message}`);
     }
   }
 }
@@ -1069,9 +949,7 @@ async function importThreads() {
           userName: stringOrEmpty(doc.userName),
           userEmail: stringOrEmpty(doc.userEmail),
           lastMessage: stringOrEmpty(doc.lastMessage),
-          lastMessageAt: doc.lastMessageAt
-            ? date(doc.lastMessageAt)
-            : null,
+          lastMessageAt: doc.lastMessageAt ? date(doc.lastMessageAt) : null,
           unreadForAdmin: integer(doc.unreadForAdmin),
           createdAt: date(doc.createdAt),
           updatedAt: date(doc.updatedAt),
@@ -1084,9 +962,7 @@ async function importThreads() {
     } catch (error) {
       failed(collection);
 
-      console.error(
-        `❌ Thread ${oldId}: ${error.message}`
-      );
+      console.error(`❌ Thread ${oldId}: ${error.message}`);
     }
   }
 }
@@ -1105,9 +981,7 @@ async function importVerificationCodes() {
       await prisma.verificationCode.create({
         data: {
           email: stringOrEmpty(doc.email),
-          dbCode: stringOrEmpty(
-            doc.DBcode ?? doc.dbCode
-          ),
+          dbCode: stringOrEmpty(doc.DBcode ?? doc.dbCode),
           expiresAt: date(doc.expiresAt),
           used: bool(doc.used),
           createdAt: date(doc.createdAt),
@@ -1119,9 +993,7 @@ async function importVerificationCodes() {
     } catch (error) {
       failed(collection);
 
-      console.error(
-        `❌ VerificationCode ${mongoId(doc._id)}: ${error.message}`
-      );
+      console.error(`❌ VerificationCode ${mongoId(doc._id)}: ${error.message}`);
     }
   }
 }
@@ -1141,19 +1013,12 @@ async function importPosts() {
 
     const authorId = maps.user.get(oldAuthorId);
     const categoryId = maps.category.get(oldCategoryId);
-    const languageId = resolveLanguage(
-      doc,
-      doc.title,
-      doc.description,
-      doc.content
-    );
+    const languageId = resolveLanguage(doc, doc.title, doc.description, doc.content);
 
     if (!authorId) {
       skipped(collection);
 
-      console.error(
-        `⏭ Post ${mongoId(doc._id)} skipped: author relationship not found`
-      );
+      console.error(`⏭ Post ${mongoId(doc._id)} skipped: author relationship not found`);
 
       continue;
     }
@@ -1161,9 +1026,7 @@ async function importPosts() {
     if (!categoryId) {
       skipped(collection);
 
-      console.error(
-        `⏭ Post ${mongoId(doc._id)} skipped: category relationship not found`
-      );
+      console.error(`⏭ Post ${mongoId(doc._id)} skipped: category relationship not found`);
 
       continue;
     }
@@ -1171,18 +1034,13 @@ async function importPosts() {
     if (!languageId) {
       skipped(collection);
 
-      console.error(
-        `⏭ Post ${mongoId(doc._id)} skipped: language relationship not found`
-      );
+      console.error(`⏭ Post ${mongoId(doc._id)} skipped: language relationship not found`);
 
       continue;
     }
 
     try {
-      const status =
-        doc.status === "published"
-          ? "published"
-          : "draft";
+      const status = doc.status === "published" ? "published" : "draft";
 
       await prisma.post.create({
         data: {
@@ -1197,9 +1055,7 @@ async function importPosts() {
           isFeatured: bool(doc.isFeatured),
           isRecommended: bool(doc.isRecommended),
           status,
-          publishedAt: doc.publishedAt
-            ? date(doc.publishedAt)
-            : null,
+          publishedAt: doc.publishedAt ? date(doc.publishedAt) : null,
           createdAt: date(doc.createdAt),
           updatedAt: date(doc.updatedAt),
         },
@@ -1209,9 +1065,7 @@ async function importPosts() {
     } catch (error) {
       failed(collection);
 
-      console.error(
-        `❌ Post ${mongoId(doc._id)}: ${error.message}`
-      );
+      console.error(`❌ Post ${mongoId(doc._id)}: ${error.message}`);
     }
   }
 }
@@ -1223,18 +1077,9 @@ async function importPosts() {
 async function importMedia() {
   const collection = "media";
 
-  const validResourceTypes = [
-    "image",
-    "video",
-    "raw",
-  ];
+  const validResourceTypes = ["image", "video", "raw"];
 
-  const validMediaTypes = [
-    "photo",
-    "video",
-    "audio",
-    "document",
-  ];
+  const validMediaTypes = ["photo", "video", "audio", "document"];
 
   for (const doc of docs(collection)) {
     seen(collection);
@@ -1247,25 +1092,17 @@ async function importMedia() {
     if (!authorId) {
       skipped(collection);
 
-      console.error(
-        `⏭ Media ${mongoId(doc._id)} skipped: author relationship not found`
-      );
+      console.error(`⏭ Media ${mongoId(doc._id)} skipped: author relationship not found`);
 
       continue;
     }
 
-    const languageId = resolveLanguage(
-      doc,
-      doc.title,
-      doc.description
-    );
+    const languageId = resolveLanguage(doc, doc.title, doc.description);
 
     if (!languageId) {
       skipped(collection);
 
-      console.error(
-        `⏭ Media ${mongoId(doc._id)} skipped: language not found`
-      );
+      console.error(`⏭ Media ${mongoId(doc._id)} skipped: language not found`);
 
       continue;
     }
@@ -1277,24 +1114,16 @@ async function importMedia() {
         resourceType = null;
       }
 
-      let mediaType = doc.mediaType;
+      const mediaType = doc.mediaType;
 
       if (!validMediaTypes.includes(mediaType)) {
-        throw new Error(
-          `Invalid mediaType: ${mediaType}`
-        );
+        throw new Error(`Invalid mediaType: ${mediaType}`);
       }
 
-      let status =
-        doc.status === "published"
-          ? "published"
-          : "draft";
+      const status = doc.status === "published" ? "published" : "draft";
 
       const categoryId =
-        oldCategoryId &&
-        maps.category.has(oldCategoryId)
-          ? maps.category.get(oldCategoryId)
-          : null;
+        oldCategoryId && maps.category.has(oldCategoryId) ? maps.category.get(oldCategoryId) : null;
 
       await prisma.media.create({
         data: {
@@ -1313,9 +1142,7 @@ async function importMedia() {
           isFeatured: bool(doc.isFeatured),
           isRecommended: bool(doc.isRecommended),
           status,
-          publishedAt: doc.publishedAt
-            ? date(doc.publishedAt)
-            : null,
+          publishedAt: doc.publishedAt ? date(doc.publishedAt) : null,
           createdAt: date(doc.createdAt),
           updatedAt: date(doc.updatedAt),
         },
@@ -1325,9 +1152,7 @@ async function importMedia() {
     } catch (error) {
       failed(collection);
 
-      console.error(
-        `❌ Media ${mongoId(doc._id)}: ${error.message}`
-      );
+      console.error(`❌ Media ${mongoId(doc._id)}: ${error.message}`);
     }
   }
 }
@@ -1351,13 +1176,10 @@ async function importAssignments() {
     if (!userId || !churchId) {
       skipped(collection);
 
-      console.error(
-        `⏭ Assignment ${mongoId(doc._id)} skipped: relationship not found`,
-        {
-          user: oldUserId,
-          church: oldChurchId,
-        }
-      );
+      console.error(`⏭ Assignment ${mongoId(doc._id)} skipped: relationship not found`, {
+        user: oldUserId,
+        church: oldChurchId,
+      });
 
       continue;
     }
@@ -1368,9 +1190,7 @@ async function importAssignments() {
           userId,
           churchId,
           role: stringOrEmpty(doc.role || "Priest"),
-          servingSince: doc.servingSince
-            ? date(doc.servingSince)
-            : null,
+          servingSince: doc.servingSince ? date(doc.servingSince) : null,
           description: stringOrEmpty(doc.description),
           image: stringOrEmpty(doc.image),
           isCurrent: bool(doc.isCurrent, true),
@@ -1384,9 +1204,7 @@ async function importAssignments() {
     } catch (error) {
       failed(collection);
 
-      console.error(
-        `❌ Assignment ${mongoId(doc._id)}: ${error.message}`
-      );
+      console.error(`❌ Assignment ${mongoId(doc._id)}: ${error.message}`);
     }
   }
 }
@@ -1407,9 +1225,7 @@ async function importMessages() {
     if (!threadId) {
       skipped(collection);
 
-      console.error(
-        `⏭ Message ${mongoId(doc._id)} skipped: thread ${oldThreadId} not found`
-      );
+      console.error(`⏭ Message ${mongoId(doc._id)} skipped: thread ${oldThreadId} not found`);
 
       continue;
     }
@@ -1431,9 +1247,7 @@ async function importMessages() {
     } catch (error) {
       failed(collection);
 
-      console.error(
-        `❌ Message ${mongoId(doc._id)}: ${error.message}`
-      );
+      console.error(`❌ Message ${mongoId(doc._id)}: ${error.message}`);
     }
   }
 }
@@ -1453,9 +1267,7 @@ async function main() {
   console.log("══════════════════════════════════════════════\n");
 
   if (!fs.existsSync(BACKUP_DIR)) {
-    throw new Error(
-      `Backup directory does not exist: ${BACKUP_DIR}`
-    );
+    throw new Error(`Backup directory does not exist: ${BACKUP_DIR}`);
   }
 
   await prisma.$connect();
@@ -1496,24 +1308,18 @@ async function main() {
   for (const [name, value] of Object.entries(stats)) {
     console.log(
       `${name.padEnd(20)} ` +
-      `seen=${String(value.seen).padStart(3)} ` +
-      `imported=${String(value.imported).padStart(3)} ` +
-      `skipped=${String(value.skipped).padStart(3)} ` +
-      `failed=${String(value.failed).padStart(3)}`
+        `seen=${String(value.seen).padStart(3)} ` +
+        `imported=${String(value.imported).padStart(3)} ` +
+        `skipped=${String(value.skipped).padStart(3)} ` +
+        `failed=${String(value.failed).padStart(3)}`
     );
   }
 
   console.log("══════════════════════════════════════════════");
 
-  const failures = Object.values(stats).reduce(
-    (sum, value) => sum + value.failed,
-    0
-  );
+  const failures = Object.values(stats).reduce((sum, value) => sum + value.failed, 0);
 
-  const skips = Object.values(stats).reduce(
-    (sum, value) => sum + value.skipped,
-    0
-  );
+  const skips = Object.values(stats).reduce((sum, value) => sum + value.skipped, 0);
 
   console.log(`\nTotal failed:  ${failures}`);
   console.log(`Total skipped: ${skips}`);
@@ -1521,9 +1327,7 @@ async function main() {
   if (failures === 0) {
     console.log("\n✓ Migration completed without import errors.");
   } else {
-    console.log(
-      "\n⚠ Migration completed with failures. Review the errors above."
-    );
+    console.log("\n⚠ Migration completed with failures. Review the errors above.");
   }
 }
 

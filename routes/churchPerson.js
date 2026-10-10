@@ -1,6 +1,6 @@
 const router = require("express").Router();
-const auth = require("../middleware/authMiddleware");
-const adminAuth = require("../middleware/adminMiddleware");
+const protect = require("../middleware/protect");
+const { P } = require("../config/permissions");
 const upload = require("../middleware/uploadMiddleware");
 const {
   getChurchPersons,
@@ -19,15 +19,29 @@ router.get("/", getChurchPersons);
 router.get("/:id", getChurchPersonById);
 
 // POST: Restricted to admin; used to add a new church person with multiple photo uploads
-router.post("/", auth, adminAuth, upload.array("photos", 10), createChurchPerson);
+router.post(
+  "/",
+  ...protect(P.CHURCH_PERSON_MANAGE, "ChurchPerson"),
+  upload.array("photos", 10),
+  createChurchPerson
+);
 
 // PUT: Restricted to admin; used to update a specific church person by ID
-router.put("/:id", auth, adminAuth, upload.array("photos", 10), updateChurchPerson);
+router.put(
+  "/:id",
+  ...protect(P.CHURCH_PERSON_MANAGE, "ChurchPerson"),
+  upload.array("photos", 10),
+  updateChurchPerson
+);
 
 // PATCH: Restricted to admin; used to remove a single photo from a church person's photos array
-router.patch("/:id/photo", auth, adminAuth, removeChurchPersonPhoto);
+router.patch(
+  "/:id/photo",
+  ...protect(P.CHURCH_PERSON_MANAGE, "ChurchPerson"),
+  removeChurchPersonPhoto
+);
 
 // DELETE: Restricted to admin; used to remove a church person by ID
-router.delete("/:id", auth, adminAuth, deleteChurchPerson);
+router.delete("/:id", ...protect(P.CHURCH_PERSON_MANAGE, "ChurchPerson"), deleteChurchPerson);
 
 module.exports = router;

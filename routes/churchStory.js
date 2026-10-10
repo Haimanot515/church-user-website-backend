@@ -1,6 +1,6 @@
 const router = require("express").Router();
-const auth = require("../middleware/authMiddleware");
-const adminAuth = require("../middleware/adminMiddleware");
+const protect = require("../middleware/protect");
+const { P } = require("../config/permissions");
 const upload = require("../middleware/uploadMiddleware");
 const {
   getChurchStories,
@@ -15,10 +15,20 @@ router.get("/", getChurchStories);
 // GET: Publicly accessible — single chapter by id
 router.get("/:id", getChurchStoryById);
 // POST: Restricted to admin
-router.post("/", auth, adminAuth, upload.single("photo"), createChurchStory);
+router.post(
+  "/",
+  ...protect(P.CHURCH_STORY_MANAGE, "ChurchStory"),
+  upload.single("photo"),
+  createChurchStory
+);
 // PUT: Restricted to admin
-router.put("/:id", auth, adminAuth, upload.single("photo"), updateChurchStory);
+router.put(
+  "/:id",
+  ...protect(P.CHURCH_STORY_MANAGE, "ChurchStory"),
+  upload.single("photo"),
+  updateChurchStory
+);
 // DELETE: Restricted to admin
-router.delete("/:id", auth, adminAuth, deleteChurchStory);
+router.delete("/:id", ...protect(P.CHURCH_STORY_MANAGE, "ChurchStory"), deleteChurchStory);
 
 module.exports = router;

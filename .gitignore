@@ -123,3 +123,11 @@ public/uploads/
 *.bak
 *.tmp
 *.temp 
+
+# DB backups
+backups/
+
+.env.*
+!.env.example
+*.save
+*.bak

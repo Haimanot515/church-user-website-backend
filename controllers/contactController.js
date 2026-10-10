@@ -1,11 +1,21 @@
 const contactService = require("../services/contactService");
-const { sendEmail } = require("../config/nodemailer");
+const { sendEmail } = require("../config/mailer");
+const { escapeHtml, escapeHtmlWithBreaks } = require("../utils/escapeHtml");
+
+const MAX_MESSAGE_LENGTH = 5000;
 
 exports.createThread = async (req, res) => {
   try {
-    const { name, email, message } = req.body;
-    if (!name || !email || !message)
-      return res.status(400).json({ msg: "All fields are required!" });
+    // Identity comes from the authenticated account, never from the request body,
+    // so a user cannot post into (or impersonate) someone else's thread.
+    const { name, email } = req.user;
+    const { message } = req.body || {};
+    if (typeof message !== "string" || !message.trim())
+      return res.status(400).json({ msg: "Message is required!" });
+    if (message.length > MAX_MESSAGE_LENGTH)
+      return res
+        .status(400)
+        .json({ msg: `Message must be ${MAX_MESSAGE_LENGTH} characters or fewer.` });
 
     let thread = await contactService.findThreadByEmail(email);
 
@@ -62,13 +72,13 @@ exports.createThread = async (req, res) => {
                 color: #cf9f3f;
               ">Contact Form</span>
               <p style="font-size: 16px; color: #1c3a52; margin: 18px 0 4px 0; text-align:left;">
-                <strong>From:</strong> ${name}
+                <strong>From:</strong> ${escapeHtml(name)}
               </p>
               <p style="font-size: 15px; color: #3d5a6c; margin: 4px 0 20px 0; text-align:left;">
-                <strong>Email:</strong> ${email}
+                <strong>Email:</strong> ${escapeHtml(email)}
               </p>
               <div style="margin: 0 0 26px 0; padding: 20px; background-color: #f3f8fa; border: 1px solid #d5eaf3; border-radius: 8px; text-align: left;">
-                <span style="font-size: 15px; color: #0f2438; line-height: 1.6; white-space: pre-wrap;">${message}</span>
+                <span style="font-size: 15px; color: #0f2438; line-height: 1.6; white-space: pre-wrap;">${escapeHtmlWithBreaks(message)}</span>
               </div>
             </div>
             <div style="display: flex; align-items: center; justify-content: center; gap: 14px; padding: 10px 0 34px 0;">
@@ -114,12 +124,14 @@ exports.createThread = async (req, res) => {
       `;
       await sendEmail(
         process.env.EMAIL_FROM,
-        `Portfolio: New Message from ${name}`,
+        `New contact message from ${String(name)
+          .replace(/[\r\n]+/g, " ")
+          .slice(0, 80)}`,
         emailHtml
       );
-      console.log("Admin notification sent via Brevo");
+      console.log("Admin notification sent");
     } catch (mailErr) {
-      console.error("Brevo Notification failed:", mailErr.message);
+      console.error("Admin notification failed:", mailErr.message);
     }
 
     res.status(201).json({

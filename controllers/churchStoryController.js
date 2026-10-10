@@ -1,5 +1,7 @@
 const churchStoryService = require("../services/churchStoryService");
 const cloudinary = require("../config/cloudinary");
+const sendError = require("../utils/sendError");
+const { parsePagination } = require("../utils/pagination");
 
 const uploadToCloudinary = (fileBuffer) => {
   return new Promise((resolve, reject) => {
@@ -25,8 +27,7 @@ const sanitizeStoryBody = (body) => {
 // @route   GET /api/church-story
 exports.getChurchStories = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const { page, limit } = parsePagination(req.query, { defaultLimit: 10, maxLimit: 50 });
     const { stories, total } = await churchStoryService.getChurchStories(req.language, {
       skip: (page - 1) * limit,
       take: limit,
@@ -38,7 +39,7 @@ exports.getChurchStories = async (req, res) => {
       page,
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -50,7 +51,7 @@ exports.getChurchStoryById = async (req, res) => {
     if (!story) return res.status(404).json({ message: "Chapter not found" });
     res.json(story);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -67,14 +68,7 @@ exports.createChurchStory = async (req, res) => {
     res.status(201).json(story);
   } catch (err) {
     console.error(err);
-    // Original checked err.name === "ValidationError" (Mongoose-specific).
-    // The service now throws a plain Error with isValidationError: true
-    // for the same "range must include a 4-digit year" case, so the same
-    // 400 response is produced without depending on Mongoose's error shape.
-    if (err.isValidationError) {
-      return res.status(400).json({ message: err.message });
-    }
-    res.status(400).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -87,15 +81,15 @@ exports.updateChurchStory = async (req, res) => {
       const result = await uploadToCloudinary(req.file.buffer);
       photoUrl = result.secure_url;
     }
-    const story = await churchStoryService.updateChurchStory(req.params.id, sanitizeStoryBody(req.body), photoUrl);
+    const story = await churchStoryService.updateChurchStory(
+      req.params.id,
+      sanitizeStoryBody(req.body),
+      photoUrl
+    );
     if (!story) return res.status(404).json({ message: "Chapter not found" });
     res.json(story);
   } catch (err) {
-    console.error(err);
-    if (err.isValidationError) {
-      return res.status(400).json({ message: err.message });
-    }
-    res.status(400).json({ message: err.message });
+    sendError(res, err);
   }
 };
 
@@ -107,6 +101,6 @@ exports.deleteChurchStory = async (req, res) => {
     if (!story) return res.status(404).json({ message: "Chapter not found" });
     res.json({ message: "Chapter deleted" });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err);
   }
 };

@@ -1,52 +1,60 @@
 const prisma = require("../prisma/prisma.service");
+const { maxLoginAttempts, lockoutMs } = require("../config/security");
+const { ROLE_NAMES } = require("../config/permissions");
+const { USER_ACCESS_SELECT } = require("./accessService");
 
-// Mirrors: User.findOne({ email })
+const ACCESS_ROLE = { select: USER_ACCESS_SELECT.accessRole.select };
+
+// Emails are matched case-insensitively so "A@x.com" and "a@x.com" are the same account.
 exports.findUserByEmail = async (email) => {
-  return prisma.user.findUnique({ where: { email } });
+  return prisma.user.findFirst({
+    where: { email: { equals: email, mode: "insensitive" } },
+    include: { accessRole: ACCESS_ROLE },
+  });
 };
 
-// Mirrors: HomeHero.findOne().sort({ createdAt: -1 })
+exports.findUserById = async (id) => {
+  return prisma.user.findUnique({ where: { id }, select: USER_ACCESS_SELECT });
+};
+
 exports.getLatestHomeHero = async () => {
-  return prisma.homeHero.findFirst({
+  return prisma.homeHero.findFirst({ orderBy: { createdAt: "desc" } });
+};
+
+exports.deleteUnusedVerificationCodes = async (email) => {
+  return prisma.verificationCode.deleteMany({ where: { email, used: false } });
+};
+
+exports.createVerificationCode = async ({ email, code, expiresAt }) => {
+  return prisma.verificationCode.create({
+    data: { email, dbCode: code, used: false, attempts: 0, expiresAt },
+  });
+};
+
+// Newest unused code for this email (older ones are deleted on register anyway).
+exports.findLatestActiveVerificationCode = async (email) => {
+  return prisma.verificationCode.findFirst({
+    where: { email, used: false },
     orderBy: { createdAt: "desc" },
   });
 };
 
-// Mirrors: VerificationCode.deleteMany({ email, used: false })
-exports.deleteUnusedVerificationCodes = async (email) => {
-  return prisma.verificationCode.deleteMany({
-    where: { email, used: false },
-  });
-};
-
-// Mirrors: VerificationCode.create({ email, DBcode, used:false, expiresAt })
-exports.createVerificationCode = async ({ email, code, expiresAt }) => {
-  return prisma.verificationCode.create({
-    data: {
-      email,
-      dbCode: code, // maps to DB column "DBcode" via @map in schema
-      used: false,
-      expiresAt,
-    },
-  });
-};
-
-// Mirrors: VerificationCode.findOne({ email, DBcode: code, used: false })
-exports.findValidVerificationCode = async ({ email, code }) => {
-  return prisma.verificationCode.findFirst({
-    where: { email, dbCode: code, used: false },
-  });
-};
-
-// Mirrors: record.used = true; await record.save();
-exports.markVerificationCodeUsed = async (id) => {
+exports.incrementVerificationAttempts = async (id) => {
   return prisma.verificationCode.update({
     where: { id },
-    data: { used: true },
+    data: { attempts: { increment: 1 } },
   });
 };
 
-// Mirrors: User.create({ name, email, password: hashedPassword, isVerified: true })
+// Atomic: returns true only for the single request that actually consumed the code.
+exports.consumeVerificationCode = async (id) => {
+  const result = await prisma.verificationCode.updateMany({
+    where: { id, used: false },
+    data: { used: true },
+  });
+  return result.count === 1;
+};
+
 exports.createUser = async ({ name, email, hashedPassword }) => {
   return prisma.user.create({
     data: {
@@ -54,6 +62,40 @@ exports.createUser = async ({ name, email, hashedPassword }) => {
       email,
       password: hashedPassword,
       isVerified: true,
+      accessRole: { connect: { name: ROLE_NAMES.USER } },
     },
+    include: { accessRole: ACCESS_ROLE },
+  });
+};
+
+// Invalidates every token issued before now (used by logout).
+exports.bumpTokenVersion = async (id) => {
+  return prisma.user.update({
+    where: { id },
+    data: { tokenVersion: { increment: 1 } },
+  });
+};
+
+// Counts a wrong password. Returns true when this attempt just locked the account.
+exports.recordFailedLogin = async (id) => {
+  const updated = await prisma.user.update({
+    where: { id },
+    data: { failedLoginAttempts: { increment: 1 } },
+    select: { failedLoginAttempts: true },
+  });
+  if (updated.failedLoginAttempts >= maxLoginAttempts) {
+    await prisma.user.update({
+      where: { id },
+      data: { failedLoginAttempts: 0, lockedUntil: new Date(Date.now() + lockoutMs) },
+    });
+    return true;
+  }
+  return false;
+};
+
+exports.clearLoginFailures = async (id) => {
+  return prisma.user.update({
+    where: { id },
+    data: { failedLoginAttempts: 0, lockedUntil: null },
   });
 };

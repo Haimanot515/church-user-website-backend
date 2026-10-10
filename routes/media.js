@@ -1,8 +1,9 @@
 const router = require("express").Router();
 
-const auth = require("../middleware/authMiddleware");
-const adminAuth = require("../middleware/adminMiddleware");
+const protect = require("../middleware/protect");
+const { P } = require("../config/permissions");
 const upload = require("../middleware/uploadMiddleware");
+const optionalAuth = require("../middleware/optionalAuth");
 
 const {
   getMedia,
@@ -17,26 +18,20 @@ const {
   getMediaByType,
 } = require("../controllers/mediaController");
 
-
 // PUBLIC: Get all media
-router.get("/", getMedia);
-
+router.get("/", optionalAuth, getMedia);
 
 // PUBLIC: Latest media
 router.get("/latest", getLatestMedia);
 
-
 // PUBLIC: Trending media
 router.get("/trending", getTrendingMedia);
-
 
 // PUBLIC: Recommended media
 router.get("/recommended", getRecommendedMedia);
 
-
 // PUBLIC: Featured media
 router.get("/featured", getFeaturedMedia);
-
 
 // PUBLIC: Get media by type
 // Example:
@@ -45,38 +40,17 @@ router.get("/featured", getFeaturedMedia);
 // /api/media/type/audio
 router.get("/type/:type", getMediaByType);
 
-
 // PUBLIC: Get single media
 // KEEP THIS LAST
-router.get("/:id", getMediaById);
-
+router.get("/:id", optionalAuth, getMediaById);
 
 // ADMIN ONLY: Create media
-router.post(
-  "/",
-  auth,
-  adminAuth,
-  upload.single("file"),
-  createMedia
-);
-
+router.post("/", ...protect(P.MEDIA_MANAGE, "Media"), upload.media.single("file"), createMedia);
 
 // ADMIN ONLY: Update media
-router.put(
-  "/:id",
-  auth,
-  adminAuth,
-  upload.single("file"),
-  updateMedia
-);
-
+router.put("/:id", ...protect(P.MEDIA_MANAGE, "Media"), upload.media.single("file"), updateMedia);
 
 // ADMIN ONLY: Delete media
-router.delete(
-  "/:id",
-  auth,
-  adminAuth,
-  deleteMedia
-);
+router.delete("/:id", ...protect(P.MEDIA_MANAGE, "Media"), deleteMedia);
 
 module.exports = router;
