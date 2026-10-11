@@ -7,20 +7,26 @@ const pick = require("../utils/pick");
 
 const isAdmin = (req) => hasPermission(req.user, P.MEDIA_MANAGE);
 
-const uploadToCloudinary = (fileBuffer, resourceType = "auto") => {
+const path = require("path");
+
+const uploadToCloudinary = (fileBuffer, resourceType = "auto", originalName = "") => {
+  const options = { folder: "media", resource_type: resourceType };
+
+  if (resourceType === "raw") {
+    const ext = path.extname(originalName) || ".pdf";
+    const base =
+      path
+        .basename(originalName, ext)
+        .replace(/[^\w-]+/g, "-")
+        .slice(0, 60) || "document";
+    options.public_id = base + "-" + Date.now() + ext;
+  }
+
   return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder: "media",
-        resource_type: resourceType,
-        use_filename: resourceType === "raw",
-        unique_filename: resourceType !== "raw",
-      },
-      (error, result) => {
-        if (error) return reject(error);
-        resolve(result);
-      }
-    );
+    const stream = cloudinary.uploader.upload_stream(options, (error, result) => {
+      if (error) return reject(error);
+      resolve(result);
+    });
     stream.end(fileBuffer);
   });
 };
@@ -118,7 +124,7 @@ exports.createMedia = async (req, res) => {
 
     if (req.file) {
       const rType = resolveResourceType(req.body.type);
-      const result = await uploadToCloudinary(req.file.buffer, rType);
+      const result = await uploadToCloudinary(req.file.buffer, rType, req.file.originalname);
       mediaUrl = buildMediaUrl(result);
       thumbnail = buildThumbnail(result);
       publicId = result.public_id;
@@ -165,7 +171,7 @@ exports.updateMedia = async (req, res) => {
 
     if (req.file) {
       const rType = resolveResourceType(req.body.type);
-      const result = await uploadToCloudinary(req.file.buffer, rType);
+      const result = await uploadToCloudinary(req.file.buffer, rType, req.file.originalname);
       updateData.mediaUrl = buildMediaUrl(result);
       updateData.thumbnail = buildThumbnail(result);
       updateData.publicId = result.public_id;
