@@ -43,7 +43,7 @@ const upload = multer({
 // Media library uploader: images, video, audio and documents, larger cap.
 upload.media = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: MEDIA_MAX_MB * MB, files: 1, fields: 50 },
+  limits: { fileSize: MEDIA_MAX_MB * MB, files: 2, fields: 50 }, // file + optional cover
   fileFilter: filterFor(MEDIA_TYPES),
 });
 
