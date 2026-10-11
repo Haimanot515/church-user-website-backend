@@ -39,6 +39,7 @@ const buildThumbnail = (result) => {
   if (result.resource_type === "image" && result.format === "pdf") {
     return cloudinary.url(result.public_id, {
       resource_type: "image",
+      secure: true,
       page: 1,
       format: "jpg",
       transformation: [{ width: 500, crop: "fit" }],
@@ -50,6 +51,7 @@ const buildThumbnail = (result) => {
   if (isRawPdf) {
     return cloudinary.url(result.public_id, {
       resource_type: "image",
+      secure: true,
       page: 1,
       format: "jpg",
       transformation: [{ width: 500, crop: "fit" }],
@@ -73,7 +75,8 @@ const buildMediaUrl = (result) => {
 
 const cleanRef = (value) => (value === "" || value === undefined ? undefined : value);
 
-const resolveResourceType = (mediaType) => (mediaType === "document" ? "raw" : "auto");
+// pdf-as-image: PDFs are stored as Cloudinary "image" assets so page 1 can be rendered as the cover
+const resolveResourceType = (mediaType) => (mediaType === "document" ? "image" : "auto");
 
 // Helper: recompute mediaUrl at read-time for raw (document) records.
 // Prisma results are plain objects already, so no .toObject() needed.
