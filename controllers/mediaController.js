@@ -117,6 +117,30 @@ exports.getMediaById = async (req, res) => {
   }
 };
 
+// optional-cover: an admin may upload a cover image; otherwise page 1 of the PDF is used.
+// Works with multer .single() (req.file) and .fields()/.any() (req.files).
+const COVER_FIELDS = ["cover", "coverImage", "thumbnail"];
+const getUploads = (req) => {
+  let file = req.file;
+  let cover;
+  const f = req.files;
+  if (f) {
+    const all = Array.isArray(f) ? f : Object.values(f).flat();
+    cover = all.find((x) => COVER_FIELDS.includes(x.fieldname));
+    file = all.find((x) => !COVER_FIELDS.includes(x.fieldname)) || file;
+  }
+  if (file && COVER_FIELDS.includes(file.fieldname)) {
+    cover = file;
+    file = undefined;
+  }
+  return { file, cover };
+};
+
+const uploadCover = async (coverFile) => {
+  const result = await uploadToCloudinary(coverFile.buffer, "image", coverFile.originalname);
+  return result.secure_url;
+};
+
 // CREATE MEDIA
 exports.createMedia = async (req, res) => {
   try {
@@ -125,14 +149,19 @@ exports.createMedia = async (req, res) => {
     let publicId;
     let resourceType;
 
-    if (req.file) {
+    const { file, cover } = getUploads(req);
+
+    if (file) {
       const rType = resolveResourceType(req.body.type);
-      const result = await uploadToCloudinary(req.file.buffer, rType, req.file.originalname);
+      const result = await uploadToCloudinary(file.buffer, rType, file.originalname);
       mediaUrl = buildMediaUrl(result);
       thumbnail = buildThumbnail(result);
       publicId = result.public_id;
       resourceType = result.resource_type;
     }
+
+    // Admin-provided cover wins; otherwise the auto first-page thumbnail above is kept.
+    if (cover) thumbnail = await uploadCover(cover);
 
     const savedMedia = await mediaService.createMedia({
       title: req.body.title,
@@ -172,13 +201,39 @@ exports.updateMedia = async (req, res) => {
       "language",
     ]);
 
-    if (req.file) {
+    const { file, cover } = getUploads(req);
+
+    if (file) {
       const rType = resolveResourceType(req.body.type);
-      const result = await uploadToCloudinary(req.file.buffer, rType, req.file.originalname);
+      const result = await uploadToCloudinary(file.buffer, rType, file.originalname);
       updateData.mediaUrl = buildMediaUrl(result);
       updateData.thumbnail = buildThumbnail(result);
       updateData.publicId = result.public_id;
       updateData.resourceType = result.resource_type;
+
+      // Replacing only the PDF keeps a custom cover the admin uploaded earlier.
+      if (!cover) {
+        const existing = await mediaService.getMediaById(req.params.id);
+        if (existing && existing.thumbnail && !existing.thumbnail.includes("pg_1")) {
+          delete updateData.thumbnail;
+        }
+      }
+    }
+
+    if (cover) {
+      updateData.thumbnail = await uploadCover(cover);
+    } else if (req.body.removeCover === true || req.body.removeCover === "true") {
+      // Back to the automatic first-page cover.
+      const existing = await mediaService.getMediaById(req.params.id);
+      const pid = updateData.publicId || (existing && existing.publicId);
+      if (pid) {
+        updateData.thumbnail = buildThumbnail({
+          resource_type: "image",
+          format: "pdf",
+          public_id: pid,
+          version: existing && existing.version,
+        });
+      }
     }
 
     if (req.body.type !== undefined) {

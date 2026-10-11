@@ -18,6 +18,12 @@ const {
   getMediaByType,
 } = require("../controllers/mediaController");
 
+// "file" = the PDF/video/audio/photo, "cover" = optional cover image
+const mediaFiles = upload.media.fields([
+  { name: "file", maxCount: 1 },
+  { name: "cover", maxCount: 1 },
+]);
+
 // PUBLIC: Get all media
 router.get("/", optionalAuth, getMedia);
 
@@ -45,10 +51,10 @@ router.get("/type/:type", getMediaByType);
 router.get("/:id", optionalAuth, getMediaById);
 
 // ADMIN ONLY: Create media
-router.post("/", ...protect(P.MEDIA_MANAGE, "Media"), upload.media.single("file"), createMedia);
+router.post("/", ...protect(P.MEDIA_MANAGE, "Media"), mediaFiles, createMedia);
 
 // ADMIN ONLY: Update media
-router.put("/:id", ...protect(P.MEDIA_MANAGE, "Media"), upload.media.single("file"), updateMedia);
+router.put("/:id", ...protect(P.MEDIA_MANAGE, "Media"), mediaFiles, updateMedia);
 
 // ADMIN ONLY: Delete media
 router.delete("/:id", ...protect(P.MEDIA_MANAGE, "Media"), deleteMedia);
