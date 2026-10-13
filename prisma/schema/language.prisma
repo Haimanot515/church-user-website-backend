@@ -17,6 +17,7 @@ model Language {
   services      Service[]
   homeHeroes    HomeHero[]
   aboutHeroes   About[]
+  misbaks       Misbak[]
 
   @@index([createdAt])
 }

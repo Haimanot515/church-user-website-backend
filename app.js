@@ -49,7 +49,10 @@ app.use(
   })
 );
 
-app.use(express.json({ limit: "100kb" }));
+const jsonParser = express.json({ limit: "100kb" });
+app.use((req, res, next) =>
+  req.path === "/api/misbak/admin/import" ? next() : jsonParser(req, res, next)
+);
 app.use(cookieParser());
 
 app.get("/", (req, res) => res.send("Church website backend is running."));
@@ -88,6 +91,7 @@ app.use("/api/mission-vision", require("./routes/mission-vision"));
 app.use("/api/bank-accounts", require("./routes/bankAccount"));
 app.use("/api/services", require("./routes/service"));
 app.use("/api/faq", require("./routes/faq"));
+app.use("/api/misbak", require("./routes/misbak"));
 app.use("/api/admin", require("./routes/admin"));
 app.use("/api/admin", require("./routes/access"));
 app.use("/api/church-persons", require("./routes/churchPerson"));

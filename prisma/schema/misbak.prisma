@@ -1,0 +1,20 @@
+enum MisbakStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model Misbak {
+  id         String       @id @default(uuid())
+  date       DateTime     @db.Date
+  verse      String
+  body       String
+  meaning    String
+  status     MisbakStatus @default(DRAFT)
+  languageId String
+  language   Language     @relation(fields: [languageId], references: [id])
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@unique([date, languageId])
+  @@index([languageId, status, date])
+}

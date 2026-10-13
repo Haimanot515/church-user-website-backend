@@ -37,6 +37,7 @@ const CATALOG = Object.freeze([
   content("HOME_HERO_MANAGE", "Manage the home hero"),
   content("SERVICE_MANAGE", "Manage services"),
   content("FAQ_MANAGE", "Manage FAQs"),
+  content("MISBAK_MANAGE", "Manage the daily misbak"),
   staff("BANK_ACCOUNT_MANAGE", "Manage donation bank accounts", true),
   staff("SUBSCRIBER_READ", "View the subscriber list", true),
   staff("MESSAGE_READ", "Read visitor message threads"),
